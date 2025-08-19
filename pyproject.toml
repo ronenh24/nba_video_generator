@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nba-video-generator"
+version = "0.1.0"
+authors = [
+  { name="Ronen Huang", email="ronenhuang24@gmail.com" },
+]
+description = "Generates video highlights for an NBA player."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "moviepy",
+    "selenium",
+    "Unidecode",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+]
+
+[project.urls]
+Homepage = "https://github.com/ronenh24/nba_video_generator"
+Issues = "https://github.com/ronenh24/nba_video_generator/issues"
