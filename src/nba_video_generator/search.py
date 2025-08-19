@@ -228,3 +228,8 @@ def _make_video_quarter(
             video.write_videofile(video_name, fps=fps, preset=preset)
             video_clips = [clip]
             current_quarter = quarter
+
+    video = concatenate_videoclips(video_clips)
+    video_name = base_name + "_" + date.replace("-", "") + \
+        "q" + current_quarter + ".mp4"
+    video.write_videofile(video_name, fps=fps, preset=preset)
