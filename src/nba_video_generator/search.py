@@ -4,7 +4,8 @@ Author: Ronen Huang
 
 
 from datetime import datetime, timedelta
-from moviepy import TextClip, VideoFileClip, concatenate_videoclips
+from moviepy import \
+    TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
 import os
 from typing import Literal
 from nba_video_generator.src.get_box_scores import \
@@ -184,9 +185,13 @@ def make_video(
                 size=(1280, 720)
             ).with_position("center").with_duration(2)
             video_clips.append(txt_clip)
-            for event_url, _, _ in events:
+            for event_url, desc, _, _ in events:
                 clip = VideoFileClip(event_url)
-                video_clips.append(clip)
+                desc_clip = TextClip(
+                    text=desc, font_size=12, color="white",
+                    size=(1280, 720)
+                ).with_position(("center", "top")).with_duration(clip.duration)
+                video_clips.append(CompositeVideoClip([clip, desc_clip]))
             if segment == "Game":
                 video = concatenate_videoclips(video_clips)
                 video.write_videofile(
@@ -215,10 +220,15 @@ def _make_video_quarter(
             size=(1280, 720)
         ).with_position("center").with_duration(2)
     ]
-    current_quarter = events[0][1]
+    current_quarter = events[0][2]
 
-    for event_url, quarter, _ in events:
-        clip = VideoFileClip(event_url)
+    for event_url, desc, quarter, _ in events:
+        video_clip = VideoFileClip(event_url)
+        desc_clip = TextClip(
+            text=desc, font_size=28, color="white",
+            size=(1280, None), method="caption"
+        ).with_position("top").with_duration(video_clip.duration)
+        clip = CompositeVideoClip([video_clip, desc_clip])
         if quarter == current_quarter:
             video_clips.append(clip)
         else:

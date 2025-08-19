@@ -9,7 +9,8 @@ time_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_clockElement')]"
 video_tag = "//h2[starts-with(@class, 'VideoPlayer_videoTitle')]"
 
 
-def get_videos(url: str, fg: bool = True) -> dict[str, tuple[str, str]]:
+def get_videos(url: str, fg: bool = True) -> \
+        dict[str, list[tuple[str, str]]]:
     """
     From video url, returns event description as key and
     url and quarter as values.
@@ -48,7 +49,9 @@ def get_videos(url: str, fg: bool = True) -> dict[str, tuple[str, str]]:
                     period = row.find_element(By.XPATH, "./td[10]").text
                 else:
                     period = row.find_element(By.XPATH, "./td[7]").text
-                video_urls[description] = (video_url, period)
+                if description not in video_urls:
+                    video_urls[description] = []
+                video_urls[description].append((video_url, period))
 
                 print(f"[{i+1}] Video URL: {video_url}")
         except Exception:
@@ -59,7 +62,7 @@ def get_videos(url: str, fg: bool = True) -> dict[str, tuple[str, str]]:
     return video_urls
 
 
-def sort_plays(pbp: str, video_urls: dict[str, tuple[str, str]]) -> \
+def sort_plays(pbp: str, video_urls: dict[str, list[tuple[str, str]]]) -> \
         list[tuple[str, str, str]]:
     """
     Sorts the plays by order of description.
@@ -83,15 +86,21 @@ def sort_plays(pbp: str, video_urls: dict[str, tuple[str, str]]) -> \
 
     result = []
     for row in rows:
-        desc = row.find_element(By.XPATH, desc_tag).text.lower()
+        desc_raw = row.find_element(By.XPATH, desc_tag).text
+        desc = desc_raw.lower()
         if desc in video_urls:
             time = row.find_element(By.XPATH, time_tag).text
             if time.startswith("0"):
                 time = time[1:]
             result.append(
-                (video_urls[desc][0], video_urls[desc][1], time)
+                (
+                    video_urls[desc][0][0], desc_raw,
+                    video_urls[desc][0][1], time
+                )
             )
-            del video_urls[desc]
+            video_urls[desc].pop(0)
+            if len(video_urls[desc]) == 0:
+                del video_urls[desc]
             if len(video_urls) == 0:
                 break
 
@@ -101,7 +110,7 @@ def sort_plays(pbp: str, video_urls: dict[str, tuple[str, str]]) -> \
 
 
 def get_ft_or_foul_videos(urls: list[tuple[str, str]]) -> \
-        dict[str, tuple[str, str]]:
+        dict[str, list[tuple[str, str]]]:
     """
     From free throw or foul url, returns description as key and
     url and quarter as values.
@@ -128,7 +137,9 @@ def get_ft_or_foul_videos(urls: list[tuple[str, str]]) -> \
                 description = driver.find_element(
                     By.XPATH, video_tag
                 ).text.lower()
-                video_urls[description] = (video_url, quarter)
+                if description not in video_urls:
+                    video_urls[description] = []
+                video_urls[description].append((video_url, quarter))
 
                 print(f"[{i+1}] Video URL: {video_url}")
         except Exception:
