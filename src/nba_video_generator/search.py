@@ -158,23 +158,20 @@ def make_video(
     preset: Literal["ultrafast", "veryfast", "superfast", "faster",
                     "fast", "medium", "slow", "slower", "veryslow",
                     "placebo"] = "fast",
-    segment: Literal["Whole", "Game", "Quarter"] = "Whole"
+    segment: Literal["Whole", "Game", "Quarter", "Play"] = "Whole"
 ) -> None:
     """
     base_name specifies video path.
     
     segment by Whole, Game, or Quarter
     """
-    directories = base_name.split("/")[:-1]
-    curr_dir = ""
-    for dir in directories:
-        curr_dir += dir
-        try:
-            os.mkdir(curr_dir)
-        except Exception:
-            pass
-        curr_dir += "/"
+    directories = base_name.rsplit("/", 1)[0]
+    try:
+        os.makedirs(directories)
+    except Exception:
+        pass
 
+    i = 1
     video_clips = []
     for date, events in video_urls.items():
         if segment == "Quarter":
@@ -189,16 +186,27 @@ def make_video(
                 clip = VideoFileClip(event_url)
                 desc_clip = TextClip(
                     text=desc, font_size=12, color="white",
-                    size=(1280, 720)
-                ).with_position(("center", "top")).with_duration(clip.duration)
+                    size=(1280, None)
+                ).with_position("top").with_duration(clip.duration)
                 video_clips.append(CompositeVideoClip([clip, desc_clip]))
+                if segment == "Play":
+                    if len(video_clips) == 2:
+                        video = concatenate_videoclips(video_clips)
+                    else:
+                        video = video_clips[0]
+                    video.write_videofile(
+                        base_name + "_" + date.replace("-", "") + "_play" +
+                        str(i) + ".mp4", fps=fps, preset=preset
+                    )
+                    i += 1
+                    video_clips.clear()
             if segment == "Game":
                 video = concatenate_videoclips(video_clips)
                 video.write_videofile(
                     base_name + "_" + date.replace("-", "") + ".mp4",
                     fps=fps, preset=preset
                 )
-                video_clips = []
+                video_clips.clear()
 
     if segment == "Whole":
         video = concatenate_videoclips(video_clips)
@@ -226,7 +234,7 @@ def _make_video_quarter(
         video_clip = VideoFileClip(event_url)
         desc_clip = TextClip(
             text=desc, font_size=28, color="white",
-            size=(1280, None), method="caption"
+            size=(1280, None)
         ).with_position("top").with_duration(video_clip.duration)
         clip = CompositeVideoClip([video_clip, desc_clip])
         if quarter == current_quarter:

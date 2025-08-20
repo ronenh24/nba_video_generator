@@ -98,7 +98,7 @@ Once the dictionary of event urls are obtained from the ``generate_videos`` meth
 - base_name - name of video
 - fps - frame per second
 - preset - Choose from "ultrafast", "veryfast", "superfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"
-- segment - how to create videos with "Whole", "Game" (one video per game), or "Quarter" (one video per quarter).
+- segment - how to create videos with "Whole", "Game" (one video per game), "Quarter" (one video per quarter), "Play" (one video per play)
 
 An example can be seen below.
 ```python
