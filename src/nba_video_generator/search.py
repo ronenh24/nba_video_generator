@@ -171,9 +171,9 @@ def make_video(
     except Exception:
         pass
 
-    i = 1
     video_clips = []
     for date, events in video_urls.items():
+        i = 1
         if segment == "Quarter":
             _make_video_quarter(base_name, date, events, fps, preset)
         else:
