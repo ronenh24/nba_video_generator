@@ -146,7 +146,7 @@ def _get_ft_times(
     times = {}
     for quarter in quarters:
         quarter_name = "Q" + quarter.text[0]
-        if quarter.text[0] == "OT":
+        if quarter.text == "OT":
             quarter_name = "OT1"
         elif "OT" in quarter.text:
             quarter_name = "OT" + quarter.text[0]
@@ -251,7 +251,7 @@ def _get_foul_times(player_name: str, pbp: str) -> dict[str, list[str]]:
     times = {}
     for quarter in quarters:
         quarter_name = "Q" + quarter.text[0]
-        if quarter.text[0] == "OT":
+        if quarter.text == "OT":
             quarter_name = "OT1"
         elif "OT" in quarter.text:
             quarter_name = "OT" + quarter.text[0]
