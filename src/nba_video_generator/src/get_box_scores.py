@@ -66,10 +66,10 @@ def get_free_throws_or_fouls(date: str, team: str) -> str:
                 cards = game_url.find_elements(By.XPATH, card_tag)
                 for card in cards:
                     card = card.get_attribute("href")
-                    if "playbyplay" in card:
+                    if "boxscore" in card:
                         driver.close()
-                        print(card)
-                        return card
+                        print(card.replace("boxscore", "playbyplay"))
+                        return card.replace("boxscore", "playbyplay")
     driver.close()
 
     return None

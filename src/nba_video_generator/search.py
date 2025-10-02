@@ -3,11 +3,11 @@ Author: Ronen Huang
 """
 
 
+import os
+from typing import Literal
 from datetime import datetime, timedelta
 from moviepy import \
     TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
-import os
-from typing import Literal
 from nba_video_generator.src.get_box_scores import \
     get_box_scores, get_free_throws_or_fouls
 from nba_video_generator.src.get_player_urls import \
@@ -26,7 +26,7 @@ td_stat = {v: k for k, v in stat_td.items()}
 
 
 def generate_video(
-        player_name: str, date_start: str, date_end: str, team: str,
+        player_name: str, date_start: str, date_end: str | None, team: str,
         FGM: bool = True, FGA: bool = False, ThreePM: bool = False,
         ThreePA: bool = False, OREB: bool = False, DREB: bool = False,
         REB: bool = False, AST: bool = True, STL: bool = True,
@@ -113,6 +113,8 @@ def generate_video(
     if PF:
         td_vals.append(stat_td["PF"])
 
+    if date_end is None:
+        date_end = date_start
     date_start_copy = datetime.strptime(date_start, '%Y-%m-%d').date()
     date_end_copy = datetime.strptime(date_end, '%Y-%m-%d').date()
     delta = timedelta(days=1)
