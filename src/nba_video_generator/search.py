@@ -4,6 +4,7 @@ Author: Ronen Huang
 
 
 import os
+import subprocess
 from typing import Literal
 from datetime import datetime, timedelta
 from moviepy import \
@@ -167,9 +168,8 @@ def make_video(
     
     segment by Whole, Game, or Quarter
     """
-    directories = base_name.rsplit("/", 1)[0]
     try:
-        os.makedirs(directories)
+        os.makedirs(base_name)
     except Exception:
         pass
 
@@ -197,7 +197,7 @@ def make_video(
                     else:
                         video = video_clips[0]
                     video.write_videofile(
-                        base_name + "_" + date.replace("-", "") + "_play" +
+                        base_name + "/" + base_name + "_" + date.replace("-", "") + "_play" +
                         str(i) + ".mp4", fps=fps, preset=preset
                     )
                     i += 1
@@ -205,7 +205,7 @@ def make_video(
             if segment == "Game":
                 video = concatenate_videoclips(video_clips)
                 video.write_videofile(
-                    base_name + "_" + date.replace("-", "") + ".mp4",
+                    base_name + "/" + base_name + "_" + date.replace("-", "") + ".mp4",
                     fps=fps, preset=preset
                 )
                 video_clips.clear()
@@ -215,7 +215,7 @@ def make_video(
         first_date = list(video_urls.keys())[0].replace("-", "")
         last_date = list(video_urls.keys())[-1].replace("-", "")
         video.write_videofile(
-            base_name + "_" + first_date + "_" + last_date + ".mp4",
+            base_name + "/" + base_name + "_" + first_date + "_" + last_date + ".mp4",
             fps=fps, preset=preset
         )
 
@@ -243,13 +243,61 @@ def _make_video_quarter(
             video_clips.append(clip)
         else:
             video = concatenate_videoclips(video_clips)
-            video_name = base_name + "_" + date.replace("-", "") + \
+            video_name = base_name + "/" + base_name + "_" + date.replace("-", "") + \
                 "q" + current_quarter + ".mp4"
             video.write_videofile(video_name, fps=fps, preset=preset)
             video_clips = [clip]
             current_quarter = quarter
 
     video = concatenate_videoclips(video_clips)
-    video_name = base_name + "_" + date.replace("-", "") + \
+    video_name = base_name + "/" + base_name + "_" + date.replace("-", "") + \
         "q" + current_quarter + ".mp4"
     video.write_videofile(video_name, fps=fps, preset=preset)
+
+
+def combine_videos(base_name: str) -> None:
+    ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
+
+    files = [
+        os.path.join(os.path.abspath(base_name), f)
+        for f in os.listdir(base_name)
+        if f.lower().endswith(".mp4")
+    ]
+
+    files.sort(key=os.path.getctime)
+
+    list_path = os.path.join(base_name, "file_list.txt")
+    with open(list_path, "w", encoding="utf-8") as f:
+        for file_path in files:
+            safe_path = file_path.replace("\\", "/")
+            f.write(f"file '{safe_path}'\n")
+
+    output_path = base_name + ".mp4"
+
+    if os.path.exists(output_path):
+        os.remove(output_path)
+
+    subprocess.run([
+        ffmpeg_path, "-f", "concat", "-safe", "0",
+        "-i", list_path, "-c", "copy", output_path
+    ])
+
+
+def pipeline(player_params: dict = {}, video_params: dict = {}):
+    try:
+        player_params["player_name"]
+        player_params["date_start"]
+    except Exception:
+        raise Exception("Player Name and/or Start Date not provided.")
+
+    if "date_end" not in player_params:
+        player_params["date_end"] = player_params["date_start"]
+
+    video_params["video_urls"] = generate_video(**player_params)
+
+    if "base_name" not in video_params:
+        video_params["base_name"] = player_name.split()[0].lower()
+
+    make_video(**video_params)
+
+    combine_videos(video_params["base_name"])

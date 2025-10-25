@@ -67,6 +67,9 @@ def get_ft_urls(
 
     Returns list of player free throw link and quarter.
     """
+    if player_name == "Hansen Yang":
+        player_name == "Yang Hansen"
+
     player_name = unidecode(player_name)
 
     times = _get_ft_times(player_name, pbp, include_two)
@@ -184,6 +187,9 @@ def get_foul_urls(player_name: str, pbp: str, url: str) -> \
 
     Returns list of player foul link and quarter.
     """
+    if player_name == "Hansen Yang":
+        player_name == "Yang Hansen"
+
     player_name = unidecode(player_name)
 
     times = _get_foul_times(player_name, pbp)

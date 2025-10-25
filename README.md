@@ -110,7 +110,40 @@ make_video(
     fps=30, preset="ultrafast",
     segment="Whole"
 )
+```
 
+## **New**
+The highlight video can now be made with the ``pipeline`` method where the users provides both player parameters and video parameters as dictionary.
+```python
+from nba_video_generator.search import pipeline
+
+player_params = {
+    "player_name": "Rui Hachimura",
+    "date_start": "2025-10-24",
+    "date_end": "2025-10-24",
+    "team": "lal",
+    "FGM": False,
+    "FGA": True,
+    "ThreePM": False,
+    "ThreePA": False,
+    "OREB": False,
+    "DREB": False,
+    "REB": True,
+    "AST": True,
+    "STL": True,
+    "BLK": True,
+    "TO": True,
+    "PF": True
+}
+
+video_params = {
+    "base_name": "rui",
+    "fps": 30,
+    "preset": 'ultrafast',
+    "segment": 'Play'
+}
+
+pipeline(player_params, video_params)
 ```
 
 ## Examples
