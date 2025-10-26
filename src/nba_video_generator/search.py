@@ -283,21 +283,24 @@ def combine_videos(base_name: str) -> None:
     ])
 
 
-def pipeline(player_params: dict = {}, video_params: dict = {}):
+def pipeline(player_params: dict = {}, video_params: dict = {},
+             name_team_base: list[tuple[str, str, str]] = []):
     try:
-        player_params["player_name"]
         player_params["date_start"]
     except Exception:
-        raise Exception("Player Name and/or Start Date not provided.")
+        raise Exception("Start Date not provided.")
 
     if "date_end" not in player_params:
         player_params["date_end"] = player_params["date_start"]
 
-    video_params["video_urls"] = generate_video(**player_params)
-
-    if "base_name" not in video_params:
-        video_params["base_name"] = player_name.split()[0].lower()
-
-    make_video(**video_params)
-
-    combine_videos(video_params["base_name"])
+    for player_info in name_team_base:
+        try:
+            name, team, base = player_info
+            player_params["player_name"] = name
+            player_params["team"] = team
+            video_params["base_name"] = base
+            video_params["video_urls"] = generate_video(**player_params)
+            make_video(**video_params)
+            combine_videos(video_params["base_name"])
+        except Exception:
+            print("Player Name and/or Team and/or File Path not provided.")

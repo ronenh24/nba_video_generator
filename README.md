@@ -118,10 +118,8 @@ The highlight video can now be made with the ``pipeline`` method where the users
 from nba_video_generator.search import pipeline
 
 player_params = {
-    "player_name": "Rui Hachimura",
-    "date_start": "2025-10-24",
-    "date_end": "2025-10-24",
-    "team": "lal",
+    "date_start": "2025-10-25",
+    "date_end": "2025-10-25",
     "FGM": False,
     "FGA": True,
     "ThreePM": False,
@@ -137,11 +135,20 @@ player_params = {
 }
 
 video_params = {
-    "base_name": "rui",
     "fps": 30,
     "preset": 'ultrafast',
     "segment": 'Play'
 }
+
+name_team_base = [
+    ("Kon Knueppel", "cha", "kon"),
+    ("Joel Embiid", "phi", "embiid"),
+    ("Bennedict Mathurin", "ind", "benn"),
+    ("Cedric Coward", "mem", "cedric"),
+    ("Javon Small", "mem", "javon"),
+    ("Christian Braun", "den", "braun"),
+    ("Devin Booker", "phx", "book")
+]
 
 pipeline(player_params, video_params)
 ```

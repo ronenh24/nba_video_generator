@@ -7,3 +7,4 @@ src/nba_video_generator/__pycache__
 src/nba_video_generator/src/__pycache__
 *.mp4
 .ipynb_checkpoints
+*.mp3
