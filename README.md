@@ -150,7 +150,7 @@ name_team_base = [
     ("Devin Booker", "phx", "book")
 ]
 
-pipeline(player_params, video_params)
+pipeline(player_params, video_params, name_team_base)
 ```
 
 ## Examples
