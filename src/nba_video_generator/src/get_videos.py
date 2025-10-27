@@ -24,9 +24,15 @@ def get_videos(url: str, fg: bool = True) -> \
 
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
-    while "content unavailable" in body or "no video available" in body:
+    retries = 1
+    while ("content unavailable" in body or "no video available" in body or "no data available" in body) \
+        and retries < 3:
         driver.refresh()
         body = driver.find_element(By.TAG_NAME, "body").text.lower()
+        retries += 1
+    if retries == 3 and ("content unavailable" in body or "no video available" in body or "no data available" in body):
+        driver.close()
+        return {}
 
     table = driver.find_element(By.XPATH, table_tag)
     rows = table.find_elements(By.TAG_NAME, "tr")
