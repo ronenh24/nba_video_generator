@@ -78,9 +78,6 @@ def get_ft_urls(
 
     for quarter, fouls in times.items():
         driver.get(url + quarter)
-        WebDriverWait(driver, 180).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
         body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
         while "content unavailable" in body:
@@ -193,9 +190,6 @@ def get_foul_urls(driver: webdriver, player_name: str, pbp: str, url: str) -> \
 
     for quarter, fouls in times.items():
         driver.get(url + quarter)
-        WebDriverWait(driver, 180).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
         body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
         while "content unavailable" in body:

@@ -117,9 +117,6 @@ def get_ft_or_foul_videos(driver: webdriver, urls: list[tuple[str, str]]) -> \
     for i, (url, quarter) in enumerate(urls):
         try:
             driver.get(url)
-            WebDriverWait(driver, 180).until(
-                lambda d: d.execute_script("return document.readyState") == "complete"
-            )
 
             body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
