@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 base_url = "https://www.nba.com/games?date="
@@ -18,12 +19,10 @@ espn_team_abbr = {
 }
 
 
-def get_box_scores(date: str, team: str) -> str:
+def get_box_scores(driver: webdriver, date: str, team: str) -> str:
     """
     Parses the NBA games on date and locates team box score link.
     """
-    driver = webdriver.Chrome()
-
     driver.get(base_url + date)
 
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
@@ -37,20 +36,16 @@ def get_box_scores(date: str, team: str) -> str:
     for game_url in game_urls:
         game_url = game_url.get_attribute("href")
         if team in game_url:
-            driver.close()
             print(game_url)
             return game_url
-    driver.close()
 
     return None
 
 
-def get_free_throws_or_fouls(date: str, team: str) -> str:
+def get_free_throws_or_fouls(driver: webdriver, date: str, team: str) -> str:
     """
     Parses ESPN NBA games on date and locates play by play link
     """
-    driver = webdriver.Chrome()
-
     driver.get(espn_url + date.replace("-", ""))
 
     game_urls = driver.find_elements(By.XPATH, espn_boxscore_tag)
@@ -67,9 +62,8 @@ def get_free_throws_or_fouls(date: str, team: str) -> str:
                 for card in cards:
                     card = card.get_attribute("href")
                     if "boxscore" in card:
-                        driver.close()
-                        print(card.replace("boxscore", "playbyplay"))
-                        return card.replace("boxscore", "playbyplay")
-    driver.close()
+                        pbp = card.replace("boxscore", "playbyplay")
+                        print(pbp)
+                        return pbp
 
     return None

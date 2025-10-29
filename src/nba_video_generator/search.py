@@ -9,6 +9,7 @@ from typing import Literal
 from datetime import datetime, timedelta
 from moviepy import \
     TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
+from selenium import webdriver
 from nba_video_generator.src.get_box_scores import \
     get_box_scores, get_free_throws_or_fouls
 from nba_video_generator.src.get_player_urls import \
@@ -27,6 +28,7 @@ td_stat = {v: k for k, v in stat_td.items()}
 
 
 def generate_video(
+        driver: webdriver,
         player_name: str, date_start: str, date_end: str | None, team: str,
         FGM: bool = True, FGA: bool = False, ThreePM: bool = False,
         ThreePA: bool = False, OREB: bool = False, DREB: bool = False,
@@ -123,9 +125,9 @@ def generate_video(
     results = {}
     while date_start_copy <= date_end_copy:
         current_date = date_start_copy.strftime('%Y-%m-%d')
-        box_score = get_box_scores(current_date, team)
+        box_score = get_box_scores(driver, current_date, team)
         if box_score:
-            player_urls = get_player_urls(player_name, box_score, td_vals)
+            player_urls = get_player_urls(driver, player_name, box_score, td_vals)
             pbp_url = box_score.rsplit("/", 1)[0] + "/play-by-play?period="
             td_vid = {}
             for td_val, player_url in player_urls:
@@ -133,22 +135,22 @@ def generate_video(
                     fg = True
                     if td_val >= 12:
                         fg = False
-                    td_vid.update(get_videos(player_url, fg))
+                    td_vid.update(get_videos(driver, player_url, fg))
                     if td_val <= 7:
-                        pbp = get_free_throws_or_fouls(current_date, team)
+                        pbp = get_free_throws_or_fouls(driver, current_date, team)
                         if pbp:
                             include_two = td_val <= 4
                             ft_urls = get_ft_urls(
-                                player_name, pbp, pbp_url, include_two
+                                driver, player_name, pbp, pbp_url, include_two
                             )
-                            td_vid.update(get_ft_or_foul_videos(ft_urls))
+                            td_vid.update(get_ft_or_foul_videos(driver, ft_urls))
                 else:
-                    pbp = get_free_throws_or_fouls(current_date, team)
+                    pbp = get_free_throws_or_fouls(driver, current_date, team)
                     if pbp:
-                        foul_urls = get_foul_urls(player_name, pbp, pbp_url)
-                        td_vid.update(get_ft_or_foul_videos(foul_urls))
+                        foul_urls = get_foul_urls(driver, player_name, pbp, pbp_url)
+                        td_vid.update(get_ft_or_foul_videos(driver, foul_urls))
             if len(td_vid) > 0:
-                results[current_date] = sort_plays(pbp_url, td_vid)
+                results[current_date] = sort_plays(driver, pbp_url, td_vid)
             print()
         date_start_copy += delta
 
@@ -293,6 +295,9 @@ def pipeline(player_params: dict = {}, video_params: dict = {},
     if "date_end" not in player_params:
         player_params["date_end"] = player_params["date_start"]
 
+    driver = webdriver.Chrome()
+    player_params["driver"] = driver
+
     for player_info in name_team_base:
         try:
             name, team, base = player_info
@@ -304,3 +309,5 @@ def pipeline(player_params: dict = {}, video_params: dict = {},
             combine_videos(video_params["base_name"])
         except Exception:
             print("Player Name and/or Team and/or File Path not provided.")
+
+    player_params["driver"].quit()

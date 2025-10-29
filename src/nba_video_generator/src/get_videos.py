@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 table_tag = '//table[starts-with(@class, "Crom_table")]'
@@ -9,15 +10,12 @@ time_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_clockElement')]"
 video_tag = "//h2[starts-with(@class, 'VideoPlayer_videoTitle')]"
 
 
-def get_videos(url: str, fg: bool = True) -> \
+def get_videos(driver: webdriver, url: str, fg: bool = True) -> \
         dict[str, list[tuple[str, str]]]:
     """
     From video url, returns event description as key and
     url and quarter as values.
     """
-    driver = webdriver.Chrome()
-    driver.implicitly_wait(60)
-
     video_urls = {}
 
     driver.get(url)
@@ -31,7 +29,6 @@ def get_videos(url: str, fg: bool = True) -> \
         body = driver.find_element(By.TAG_NAME, "body").text.lower()
         retries += 1
     if retries == 3 and ("content unavailable" in body or "no video available" in body or "no data available" in body):
-        driver.close()
         return {}
 
     table = driver.find_element(By.XPATH, table_tag)
@@ -63,20 +60,16 @@ def get_videos(url: str, fg: bool = True) -> \
         except Exception:
             pass
 
-    driver.close()
-
     return video_urls
 
 
-def sort_plays(pbp: str, video_urls: dict[str, list[tuple[str, str]]]) -> \
+def sort_plays(driver: webdriver, pbp: str, video_urls: dict[str, list[tuple[str, str]]]) -> \
         list[tuple[str, str, str]]:
     """
     Sorts the plays by order of description.
 
     Returns url, quarter, and time.
     """
-    driver = webdriver.Chrome()
-
     pbp = pbp.rsplit("/", 1)[0] + "/play-by-play?period=All"
 
     driver.get(pbp)
@@ -110,25 +103,23 @@ def sort_plays(pbp: str, video_urls: dict[str, list[tuple[str, str]]]) -> \
             if len(video_urls) == 0:
                 break
 
-    driver.close()
-
     return result
 
 
-def get_ft_or_foul_videos(urls: list[tuple[str, str]]) -> \
+def get_ft_or_foul_videos(driver: webdriver, urls: list[tuple[str, str]]) -> \
         dict[str, list[tuple[str, str]]]:
     """
     From free throw or foul url, returns description as key and
     url and quarter as values.
     """
-    driver = webdriver.Chrome()
-    driver.implicitly_wait(60)
-
     video_urls = {}
 
     for i, (url, quarter) in enumerate(urls):
         try:
             driver.get(url)
+            WebDriverWait(driver, 180).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
 
             body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
@@ -150,7 +141,5 @@ def get_ft_or_foul_videos(urls: list[tuple[str, str]]) -> \
                 print(f"[{i+1}] Video URL: {video_url}")
         except Exception:
             pass
-
-    driver.close()
 
     return video_urls

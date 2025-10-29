@@ -1,4 +1,5 @@
 from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 import math
 from unidecode import unidecode
@@ -10,7 +11,7 @@ time_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_clockElement')]"
 
 
 def get_player_urls(
-    player_name: str, box_score: str, td_vals: list[int]
+    driver: webdriver, player_name: str, box_score: str, td_vals: list[int]
 ) -> list[tuple[int, str]]:
     """
     Parses box score for player event links.
@@ -19,8 +20,6 @@ def get_player_urls(
     
     Example: [("3", link to fg made), ("14", link to reb)]
     """
-    driver = webdriver.Chrome()
-
     driver.get(box_score)
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
@@ -51,16 +50,15 @@ def get_player_urls(
                         except Exception:
                             if td_val == 19:
                                 urls.append((td_val, ""))
+                    return urls
             except Exception:
                 pass
-
-    driver.close()
 
     return urls
 
 
 def get_ft_urls(
-    player_name: str, pbp: str, url: str, include_two: bool = True
+    driver: webdriver, player_name: str, pbp: str, url: str, include_two: bool = True
 ) -> list[tuple[str, str]]:
     """
     Parses play by play for player free throw links.
@@ -68,21 +66,21 @@ def get_ft_urls(
     Returns list of player free throw link and quarter.
     """
     if player_name == "Hansen Yang":
-        player_name == "Yang Hansen"
+        player_name = "Yang Hansen"
 
     player_name = unidecode(player_name)
 
-    times = _get_ft_times(player_name, pbp, include_two)
+    times = _get_ft_times(driver, player_name, pbp, include_two)
 
     last_name = player_name.split()[-1]
-
-    driver = webdriver.Chrome()
-    driver.implicitly_wait(60)
 
     video_urls = []
 
     for quarter, fouls in times.items():
         driver.get(url + quarter)
+        WebDriverWait(driver, 180).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
         body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
         while "content unavailable" in body:
@@ -122,18 +120,15 @@ def get_ft_urls(
             if len(fouls) == 0:
                 break
 
-    driver.close()
-
     return video_urls
 
 
 def _get_ft_times(
-    player_name: str, pbp: str, include_two: bool = True
+    driver: webdriver, player_name: str, pbp: str, include_two: bool = True
 ) -> dict[str, list[str]]:
     """
     Gets quarter and time of free throws for a player.
     """
-    driver = webdriver.Chrome()
     driver.get(pbp)
 
     play_by_play = driver.find_element(
@@ -175,12 +170,10 @@ def _get_ft_times(
                     time = "0:" + str(round(float(time)))
                 times[quarter_name].append(time)
 
-    driver.close()
-
     return times
 
 
-def get_foul_urls(player_name: str, pbp: str, url: str) -> \
+def get_foul_urls(driver: webdriver, player_name: str, pbp: str, url: str) -> \
         list[tuple[str, str]]:
     """
     Parses play by play for player fouls.
@@ -192,17 +185,17 @@ def get_foul_urls(player_name: str, pbp: str, url: str) -> \
 
     player_name = unidecode(player_name)
 
-    times = _get_foul_times(player_name, pbp)
+    times = _get_foul_times(driver, player_name, pbp)
 
     last_name = player_name.split()[-1]
-
-    driver = webdriver.Chrome()
-    driver.implicitly_wait(60)
 
     video_urls = []
 
     for quarter, fouls in times.items():
         driver.get(url + quarter)
+        WebDriverWait(driver, 180).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
         body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
         while "content unavailable" in body:
@@ -232,16 +225,13 @@ def get_foul_urls(player_name: str, pbp: str, url: str) -> \
                     if len(fouls) == 0:
                         break
 
-    driver.close()
-
     return video_urls
 
 
-def _get_foul_times(player_name: str, pbp: str) -> dict[str, list[str]]:
+def _get_foul_times(driver: webdriver, player_name: str, pbp: str) -> dict[str, list[str]]:
     """
     Gets quarter and time of foul for a player.
     """
-    driver = webdriver.Chrome()
     driver.get(pbp)
 
     play_by_play = driver.find_element(
@@ -276,8 +266,6 @@ def _get_foul_times(player_name: str, pbp: str) -> dict[str, list[str]]:
                 if "." in time:
                     time = "0:" + str(round(float(time)))
                 times[quarter_name].append(time)
-
-    driver.close()
 
     return times
 
