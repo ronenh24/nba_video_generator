@@ -5,7 +5,6 @@ Author: Ronen Huang
 
 import os
 import subprocess
-import timer
 from typing import Literal
 from datetime import datetime, timedelta
 from moviepy import \
@@ -296,17 +295,15 @@ def pipeline(player_params: dict = {}, video_params: dict = {},
     if "date_end" not in player_params:
         player_params["date_end"] = player_params["date_start"]
 
-    driver = webdriver.Chrome()
-    driver.implicitly_wait(30)
-    player_params["driver"] = driver
-
     for player_info in name_team_base:
         name, team, base = player_info
         player_params["player_name"] = name
         player_params["team"] = team
         video_params["base_name"] = base
+        driver = webdriver.Chrome()
+        driver.implicitly_wait(30)
+        player_params["driver"] = driver
         video_params["video_urls"] = generate_video(**player_params)
         make_video(**video_params)
+        player_params["driver"].quit()
         combine_videos(video_params["base_name"])
-
-    player_params["driver"].quit()
