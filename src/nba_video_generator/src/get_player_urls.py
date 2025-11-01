@@ -164,7 +164,11 @@ def _get_ft_times(
                     times[quarter_name] = []
                 time = row_text.split(maxsplit=1)[0]
                 if "." in time:
-                    time = "0:" + str(round(float(time)))
+                    rounded_time = round(float(time))
+                    if rounded_time < 10:
+                        time = "0:0" + str(rounded_time)
+                    else:
+                        time = "0:" + str(rounded_time)
                 times[quarter_name].append(time)
 
     return times
@@ -258,7 +262,11 @@ def _get_foul_times(driver: webdriver, player_name: str, pbp: str) -> dict[str, 
                     times[quarter_name] = []
                 time = row_text.split(maxsplit=1)[0]
                 if "." in time:
-                    time = "0:" + str(round(float(time)))
+                    rounded_time = round(float(time))
+                    if rounded_time < 10:
+                        time = "0:0" + str(rounded_time)
+                    else:
+                        time = "0:" + str(rounded_time)
                 times[quarter_name].append(time)
 
     return times
