@@ -192,6 +192,7 @@ def make_video(
             video_clips.append(txt_clip)
             time_secs += txt_clip.duration
             for event_url, desc, _, _ in events:
+                desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
                 clip = VideoFileClip(event_url)
                 # desc_clip = TextClip(
                 #     text=desc, font_size=28, color="white",
@@ -200,7 +201,6 @@ def make_video(
                 time_secs += clip.duration
                 video_clips.append(clip)
                 # video_clips.append(CompositeVideoClip([clip, desc_clip]))
-                desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
                 if segment == "Play":
                     if len(video_clips) == 2:
                         video = concatenate_videoclips(video_clips)
@@ -250,6 +250,7 @@ def _make_video_quarter(
     time_secs += 2
 
     for event_url, desc, quarter, _ in events:
+        desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
         video_clip = VideoFileClip(event_url)
         # desc_clip = TextClip(
         #     text=desc, font_size=28, color="white",
@@ -258,7 +259,6 @@ def _make_video_quarter(
         clip = video_clip
         time_secs += clip.duration
         # clip = CompositeVideoClip([video_clip, desc_clip])
-        desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
         if quarter == current_quarter:
             video_clips.append(clip)
         else:
