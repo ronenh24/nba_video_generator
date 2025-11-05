@@ -5,6 +5,7 @@ Author: Ronen Huang
 
 import os
 import subprocess
+import time
 from typing import Literal
 from datetime import datetime, timedelta
 from moviepy import \
@@ -175,6 +176,9 @@ def make_video(
     except Exception:
         pass
 
+    desc_txt = open(base_name + "_description.txt", "w+")
+    time_secs = 0
+
     video_clips = []
     for date, events in video_urls.items():
         i = 1
@@ -186,13 +190,17 @@ def make_video(
                 size=(1280, 720)
             ).with_position("center").with_duration(2)
             video_clips.append(txt_clip)
+            time_secs += txt_clip.duration
             for event_url, desc, _, _ in events:
                 clip = VideoFileClip(event_url)
-                desc_clip = TextClip(
-                    text=desc, font_size=28, color="white",
-                    size=(1280, None)
-                ).with_position("top").with_duration(clip.duration)
-                video_clips.append(CompositeVideoClip([clip, desc_clip]))
+                # desc_clip = TextClip(
+                #     text=desc, font_size=28, color="white",
+                #     size=(1280, None)
+                # ).with_position("top").with_duration(clip.duration)
+                time_secs += clip.duration
+                video_clips.append(clip)
+                # video_clips.append(CompositeVideoClip([clip, desc_clip]))
+                desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
                 if segment == "Play":
                     if len(video_clips) == 2:
                         video = concatenate_videoclips(video_clips)
@@ -200,7 +208,7 @@ def make_video(
                         video = video_clips[0]
                     video.write_videofile(
                         base_name + "/" + base_name + "_" + date.replace("-", "") + "_play" +
-                        str(i) + ".mp4", fps=fps, preset=preset
+                        str(i) + ".mp4", fps=fps, preset=preset, threads=3
                     )
                     i += 1
                     video_clips.clear()
@@ -208,7 +216,7 @@ def make_video(
                 video = concatenate_videoclips(video_clips)
                 video.write_videofile(
                     base_name + "/" + base_name + "_" + date.replace("-", "") + ".mp4",
-                    fps=fps, preset=preset
+                    fps=fps, preset=preset, threads=3
                 )
                 video_clips.clear()
 
@@ -218,14 +226,20 @@ def make_video(
         last_date = list(video_urls.keys())[-1].replace("-", "")
         video.write_videofile(
             base_name + "/" + base_name + "_" + first_date + "_" + last_date + ".mp4",
-            fps=fps, preset=preset
+            fps=fps, preset=preset, threads=3
         )
+        video_clips.clear()
+
+    desc_txt.close()
 
 
 def _make_video_quarter(
     base_name: str, date: str, events: list[tuple[str, str, str]],
     fps: int = 30, preset: str = "fast"
 ) -> None:
+    desc_txt = open(base_name + "_description.txt", "w+")
+    time_secs = 0
+
     video_clips = [
         TextClip(
             text=date, font_size=36, color="white",
@@ -233,28 +247,34 @@ def _make_video_quarter(
         ).with_position("center").with_duration(2)
     ]
     current_quarter = events[0][2]
+    time_secs += 2
 
     for event_url, desc, quarter, _ in events:
         video_clip = VideoFileClip(event_url)
-        desc_clip = TextClip(
-            text=desc, font_size=28, color="white",
-            size=(1280, None)
-        ).with_position("top").with_duration(video_clip.duration)
-        clip = CompositeVideoClip([video_clip, desc_clip])
+        # desc_clip = TextClip(
+        #     text=desc, font_size=28, color="white",
+        #     size=(1280, None)
+        # ).with_position("top").with_duration(video_clip.duration)
+        clip = video_clip
+        time_secs += clip.duration
+        # clip = CompositeVideoClip([video_clip, desc_clip])
+        desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
         if quarter == current_quarter:
             video_clips.append(clip)
         else:
             video = concatenate_videoclips(video_clips)
             video_name = base_name + "/" + base_name + "_" + date.replace("-", "") + \
                 "q" + current_quarter + ".mp4"
-            video.write_videofile(video_name, fps=fps, preset=preset)
+            video.write_videofile(video_name, fps=fps, preset=preset, threads=3)
             video_clips = [clip]
             current_quarter = quarter
 
     video = concatenate_videoclips(video_clips)
     video_name = base_name + "/" + base_name + "_" + date.replace("-", "") + \
         "q" + current_quarter + ".mp4"
-    video.write_videofile(video_name, fps=fps, preset=preset)
+    video.write_videofile(video_name, fps=fps, preset=preset, threads=3)
+
+    desc_txt.close()
 
 
 def combine_videos(base_name: str) -> None:
