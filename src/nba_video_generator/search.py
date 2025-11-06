@@ -202,7 +202,8 @@ def make_video(
                         text=desc, font_size=28, color="white",
                         size=(1280, None)
                     ).with_position("top").with_duration(clip.duration)
-                    video_clips.append(CompositeVideoClip([clip, desc_clip]))
+                    video_clips.append(CompositeVideoClip([clip, desc_clip], use_bgclip=True))
+                    video_clips[-1].audio = clip.audio
                 else:
                     video_clips.append(clip)
                 time_secs += clip.duration
@@ -263,7 +264,8 @@ def _make_video_quarter(
                 text=desc, font_size=28, color="white",
                 size=(1280, None)
             ).with_position("top").with_duration(video_clip.duration)
-            clip = CompositeVideoClip([video_clip, desc_clip])
+            clip = CompositeVideoClip([video_clip, desc_clip], use_bgclip=True)
+            clip[-1].audio = video_clip.audio
         else:
             clip = video_clip
         time_secs += clip.duration
