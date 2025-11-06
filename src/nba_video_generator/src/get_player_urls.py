@@ -12,7 +12,7 @@ time_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_clockElement')]"
 
 def get_player_urls(
     driver: webdriver, player_name: str, box_score: str, td_vals: list[int]
-) -> list[tuple[int, str]]:
+) -> tuple[str, list[tuple[int, str]]]:
     """
     Parses box score for player event links.
 
@@ -21,6 +21,7 @@ def get_player_urls(
     Example: [("3", link to fg made), ("14", link to reb)]
     """
     driver.get(box_score)
+    title = player_name + " " + driver.title.rstrip(" Box Scores | NBA.com")
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
     while "content unavailable" in body:
@@ -50,11 +51,11 @@ def get_player_urls(
                         except Exception:
                             if td_val == 19:
                                 urls.append((td_val, ""))
-                    return urls
+                    return title, urls
             except Exception:
                 pass
 
-    return urls
+    return title, urls
 
 
 def get_ft_urls(

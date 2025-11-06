@@ -129,7 +129,7 @@ def generate_video(
         current_date = date_start_copy.strftime('%Y-%m-%d')
         box_score = get_box_scores(driver, current_date, team)
         if box_score:
-            player_urls = get_player_urls(driver, player_name, box_score, td_vals)
+            title, player_urls = get_player_urls(driver, player_name, box_score, td_vals)
             pbp_url = box_score.rsplit("/", 1)[0] + "/play-by-play?period="
             td_vid = {}
             for td_val, player_url in player_urls:
@@ -156,7 +156,7 @@ def generate_video(
             print()
         date_start_copy += delta
 
-    return results
+    return title, results
 
 
 def make_video(
@@ -287,7 +287,7 @@ def _make_video_quarter(
     desc_txt.close()
 
 
-def combine_videos(base_name: str) -> None:
+def combine_videos(base_name: str, title: str) -> None:
     ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
 
     files = [
@@ -304,7 +304,7 @@ def combine_videos(base_name: str) -> None:
             safe_path = file_path.replace("\\", "/")
             f.write(f"file '{safe_path}'\n")
 
-    output_path = base_name + ".mp4"
+    output_path = title + ".mp4"
 
     if os.path.exists(output_path):
         os.remove(output_path)
@@ -333,7 +333,7 @@ def pipeline(player_params: dict = {}, video_params: dict = {},
         driver = webdriver.Chrome()
         driver.implicitly_wait(30)
         player_params["driver"] = driver
-        video_params["video_urls"] = generate_video(**player_params)
+        title, video_params["video_urls"] = generate_video(**player_params)
         make_video(**video_params)
         player_params["driver"].quit()
-        combine_videos(video_params["base_name"])
+        combine_videos(video_params["base_name"], title)
