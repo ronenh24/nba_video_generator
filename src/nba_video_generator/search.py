@@ -34,7 +34,8 @@ def generate_video(
         FGM: bool = True, FGA: bool = False, ThreePM: bool = False,
         ThreePA: bool = False, OREB: bool = False, DREB: bool = False,
         REB: bool = False, AST: bool = True, STL: bool = True,
-        BLK: bool = True, TO: bool = False, PF: bool = False
+        BLK: bool = True, TO: bool = False, PF: bool = False,
+        include_ft: bool = False
         ) -> dict[str, list[tuple[str, str, str]]]:
     """
     Specify start date and end date as Year/Month/Day
@@ -137,7 +138,7 @@ def generate_video(
                     if td_val >= 12:
                         fg = False
                     td_vid.update(get_videos(driver, player_url, fg))
-                    if td_val <= 7:
+                    if td_val <= 7 and include_ft:
                         pbp = get_free_throws_or_fouls(driver, current_date, team)
                         if pbp:
                             include_two = td_val <= 4
