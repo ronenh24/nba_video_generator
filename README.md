@@ -131,13 +131,15 @@ player_params = {
     "STL": True,
     "BLK": True,
     "TO": True,
-    "PF": True
+    "PF": True,
+    "include_ft": True
 }
 
 video_params = {
     "fps": 30,
     "preset": 'ultrafast',
-    "segment": 'Play'
+    "segment": 'Play',
+    "include_caption": True
 }
 
 name_team_base = [

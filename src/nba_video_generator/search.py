@@ -165,7 +165,8 @@ def make_video(
     preset: Literal["ultrafast", "veryfast", "superfast", "faster",
                     "fast", "medium", "slow", "slower", "veryslow",
                     "placebo"] = "fast",
-    segment: Literal["Whole", "Game", "Quarter", "Play"] = "Whole"
+    segment: Literal["Whole", "Game", "Quarter", "Play"] = "Whole",
+    include_caption: bool = False
 ) -> None:
     """
     base_name specifies video path.
@@ -177,7 +178,8 @@ def make_video(
     except Exception:
         pass
 
-    desc_txt = open(base_name + "_description.txt", "w+")
+    if segment != "Quarter":
+        desc_txt = open(base_name + "_description.txt", "w+")
     time_secs = 0
 
     video_clips = []
@@ -195,13 +197,15 @@ def make_video(
             for event_url, desc, _, _ in events:
                 desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
                 clip = VideoFileClip(event_url)
-                # desc_clip = TextClip(
-                #     text=desc, font_size=28, color="white",
-                #     size=(1280, None)
-                # ).with_position("top").with_duration(clip.duration)
+                if include_caption:
+                    desc_clip = TextClip(
+                        text=desc, font_size=10, color="white",
+                        size=(1280, None)
+                    ).with_position("top").with_duration(clip.duration)
+                    video_clips.append(CompositeVideoClip([clip, desc_clip]))
+                else:
+                    video_clips.append(clip)
                 time_secs += clip.duration
-                video_clips.append(clip)
-                # video_clips.append(CompositeVideoClip([clip, desc_clip]))
                 if segment == "Play":
                     if len(video_clips) == 2:
                         video = concatenate_videoclips(video_clips)
@@ -231,12 +235,13 @@ def make_video(
         )
         video_clips.clear()
 
-    desc_txt.close()
+    if segment != "Quarter":
+        desc_txt.close()
 
 
 def _make_video_quarter(
     base_name: str, date: str, events: list[tuple[str, str, str]],
-    fps: int = 30, preset: str = "fast"
+    fps: int = 30, preset: str = "fast", include_caption: bool = False
 ) -> None:
     desc_txt = open(base_name + "_description.txt", "w+")
     time_secs = 0
@@ -253,13 +258,15 @@ def _make_video_quarter(
     for event_url, desc, quarter, _ in events:
         desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
         video_clip = VideoFileClip(event_url)
-        # desc_clip = TextClip(
-        #     text=desc, font_size=28, color="white",
-        #     size=(1280, None)
-        # ).with_position("top").with_duration(video_clip.duration)
-        clip = video_clip
+        if include_caption:
+            desc_clip = TextClip(
+                text=desc, font_size=10, color="white",
+                size=(1280, None)
+            ).with_position("top").with_duration(video_clip.duration)
+            clip = CompositeVideoClip([video_clip, desc_clip])
+        else:
+            clip = video_clip
         time_secs += clip.duration
-        # clip = CompositeVideoClip([video_clip, desc_clip])
         if quarter == current_quarter:
             video_clips.append(clip)
         else:
