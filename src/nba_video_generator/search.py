@@ -199,7 +199,7 @@ def make_video(
                 clip = VideoFileClip(event_url)
                 if include_caption:
                     desc_clip = TextClip(
-                        text=desc, font_size=10, color="white",
+                        text=desc, font_size=28, color="white",
                         size=(1280, None)
                     ).with_position("top").with_duration(clip.duration)
                     video_clips.append(CompositeVideoClip([clip, desc_clip]))
@@ -260,7 +260,7 @@ def _make_video_quarter(
         video_clip = VideoFileClip(event_url)
         if include_caption:
             desc_clip = TextClip(
-                text=desc, font_size=10, color="white",
+                text=desc, font_size=28, color="white",
                 size=(1280, None)
             ).with_position("top").with_duration(video_clip.duration)
             clip = CompositeVideoClip([video_clip, desc_clip])
