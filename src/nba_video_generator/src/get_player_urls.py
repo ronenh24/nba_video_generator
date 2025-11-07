@@ -79,7 +79,8 @@ def format_box_score(stats: list[str]):
     pts          = stats[19]
     plus_minus   = stats[20]
 
-    total_reb = str(int(off_reb) + int(def_reb))
+    if int(plus_minus) > 0:
+        plus_minus = "+" + plus_minus
 
     return (
         f"{min_played} Minutes, "
