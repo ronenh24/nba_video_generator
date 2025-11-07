@@ -6,6 +6,7 @@ Author: Ronen Huang
 import os
 import subprocess
 import time
+from textwrap import fill
 from typing import Literal
 from datetime import datetime, timedelta
 from moviepy import \
@@ -124,12 +125,15 @@ def generate_video(
     date_end_copy = datetime.strptime(date_end, '%Y-%m-%d').date()
     delta = timedelta(days=1)
 
+    title = ""
+    stats_list = []
     results = {}
     while date_start_copy <= date_end_copy:
         current_date = date_start_copy.strftime('%Y-%m-%d')
         box_score = get_box_scores(driver, current_date, team)
         if box_score:
-            title, player_urls = get_player_urls(driver, player_name, box_score, td_vals)
+            title, stats, player_urls = get_player_urls(driver, player_name, box_score, td_vals)
+            stats_list.append(stats)
             pbp_url = box_score.rsplit("/", 1)[0] + "/play-by-play?period="
             td_vid = {}
             for td_val, player_url in player_urls:
@@ -154,9 +158,11 @@ def generate_video(
             if len(td_vid) > 0:
                 results[current_date] = sort_plays(driver, pbp_url, td_vid)
             print()
+        else:
+            stats_list.append("")
         date_start_copy += delta
 
-    return title, results
+    return title, stats_list, results
 
 
 def make_video(
@@ -166,7 +172,7 @@ def make_video(
                     "fast", "medium", "slow", "slower", "veryslow",
                     "placebo"] = "fast",
     segment: Literal["Whole", "Game", "Quarter", "Play"] = "Whole",
-    include_caption: bool = False
+    include_caption: bool = False, stats_list: list[str] = []
 ) -> None:
     """
     base_name specifies video path.
@@ -182,15 +188,19 @@ def make_video(
         desc_txt = open(base_name + "_description.txt", "w+")
     time_secs = 0
 
+    if len(stats_list) != len(video_urls):
+        stats_list = [""] * len(video_urls)
+
     video_clips = []
-    for date, events in video_urls.items():
+    for (date, events), stats in zip(video_urls.items(), stats_list):
         i = 1
         if segment == "Quarter":
-            _make_video_quarter(base_name, date, events, fps, preset)
+            _make_video_quarter(base_name, date, events, fps, preset, stats)
         else:
+            stats = fill(stats, width=75)
             txt_clip = TextClip(
-                text=date, font_size=36, color="white",
-                size=(1280, 720)
+                text=date + "\n\n" + stats, font_size=36, color="white",
+                size=(1280, 720), method="caption"
             ).with_position("center").with_duration(2)
             video_clips.append(txt_clip)
             time_secs += txt_clip.duration
@@ -242,15 +252,18 @@ def make_video(
 
 def _make_video_quarter(
     base_name: str, date: str, events: list[tuple[str, str, str]],
-    fps: int = 30, preset: str = "fast", include_caption: bool = False
+    fps: int = 30, preset: str = "fast", include_caption: bool = False,
+    stats: str = ""
 ) -> None:
+    stats = fill(stats, width=75)
+
     desc_txt = open(base_name + "_description.txt", "w+")
     time_secs = 0
 
     video_clips = [
         TextClip(
-            text=date, font_size=36, color="white",
-            size=(1280, 720)
+            text=date + "\n\n" + stats, font_size=36, color="white",
+            size=(1280, 720), method="caption"
         ).with_position("center").with_duration(2)
     ]
     current_quarter = events[0][2]
@@ -333,7 +346,8 @@ def pipeline(player_params: dict = {}, video_params: dict = {},
         driver = webdriver.Chrome()
         driver.implicitly_wait(30)
         player_params["driver"] = driver
-        title, video_params["video_urls"] = generate_video(**player_params)
+        title, stats_list, video_params["video_urls"] = generate_video(**player_params)
+        video_params["stats_list"] = stats_list
         make_video(**video_params)
         player_params["driver"].quit()
         combine_videos(video_params["base_name"], title)

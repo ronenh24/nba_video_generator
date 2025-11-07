@@ -12,7 +12,7 @@ time_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_clockElement')]"
 
 def get_player_urls(
     driver: webdriver, player_name: str, box_score: str, td_vals: list[int]
-) -> tuple[str, list[tuple[int, str]]]:
+) -> tuple[str, str, list[tuple[int, str]]]:
     """
     Parses box score for player event links.
 
@@ -22,6 +22,7 @@ def get_player_urls(
     """
     driver.get(box_score)
     title = player_name + " " + driver.title.rstrip(" Box Scores | NBA.com")
+    stats = ""
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
     while "content unavailable" in body:
@@ -51,11 +52,45 @@ def get_player_urls(
                         except Exception:
                             if td_val == 19:
                                 urls.append((td_val, ""))
-                    return title, urls
+                    td_elems = row.find_elements(By.TAG_NAME, "td")
+                    stats = [td.text for td in td_elems]
+                    stats = format_box_score(stats)
+                    print(stats)
+                    return title, stats, urls
             except Exception:
                 pass
 
-    return title, urls
+    return title, stats, urls
+
+
+def format_box_score(stats: list[str]):
+
+    min_played   = stats[1]
+    fgm, fga     = stats[2], stats[3]
+    three_fgm, three_fga = stats[5], stats[6]
+    off_reb      = stats[11]
+    def_reb      = stats[12]
+    total_reb    = stats[13]
+    ast          = stats[14]
+    stl          = stats[15]
+    blk          = stats[16]
+    tov          = stats[17]
+    pf           = stats[18]
+    pts          = stats[19]
+    plus_minus   = stats[20]
+
+    total_reb = str(int(off_reb) + int(def_reb))
+
+    return (
+        f"{min_played} Minutes, "
+        f"{pts} Points ({fgm}-{fga} FG, {three_fgm}-{three_fga} 3PT), "
+        f"{total_reb} Rebounds ({off_reb} OFF, {def_reb} DEF), "
+        f"{ast} Assists ({tov} Turnovers), "
+        f"{stl} Steals, "
+        f"{blk} Block, "
+        f"{pf} Personal Fouls, "
+        f"{plus_minus}"
+    )
 
 
 def get_ft_urls(
