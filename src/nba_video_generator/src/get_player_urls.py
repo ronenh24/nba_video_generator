@@ -21,7 +21,7 @@ def get_player_urls(
     Example: [("3", link to fg made), ("14", link to reb)]
     """
     driver.get(box_score)
-    title = player_name + " " + driver.title.rstrip(" Box Scores | NBA.com")
+    title = player_name + " Highlights " + driver.title.rstrip(" Box Scores | NBA.com")
     stats = ""
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
