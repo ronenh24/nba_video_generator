@@ -68,6 +68,7 @@ def format_box_score(stats: list[str]):
     min_played   = stats[1]
     fgm, fga     = stats[2], stats[3]
     three_fgm, three_fga = stats[5], stats[6]
+    ftm, fta     = stats[8], stats[9]
     off_reb      = stats[11]
     def_reb      = stats[12]
     total_reb    = stats[13]
@@ -84,7 +85,7 @@ def format_box_score(stats: list[str]):
 
     return (
         f"{min_played} Minutes, "
-        f"{pts} Points ({fgm}-{fga} FG, {three_fgm}-{three_fga} 3PT), "
+        f"{pts} Points ({fgm}-{fga} FG, {three_fgm}-{three_fga} 3PT, {ftm}-{fta} FT), "
         f"{total_reb} Rebounds ({off_reb} OFF, {def_reb} DEF), "
         f"{ast} Assists ({tov} Turnovers), "
         f"{stl} Steals, "
