@@ -1,6 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 base_url = "https://www.nba.com/games?date="
@@ -48,7 +49,9 @@ def get_free_throws_or_fouls(driver: webdriver, date: str, team: str) -> str:
     """
     driver.get(espn_url + date.replace("-", ""))
 
-    game_urls = driver.find_elements(By.XPATH, espn_boxscore_tag)
+    game_urls = WebDriverWait(driver, 10).until(
+        EC.presence_of_all_elements_located((By.XPATH, espn_boxscore_tag))
+    )
 
     for game_url in game_urls:
         if team in espn_team_abbr:

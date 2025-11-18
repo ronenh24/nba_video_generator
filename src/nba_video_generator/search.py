@@ -30,7 +30,7 @@ td_stat = {v: k for k, v in stat_td.items()}
 
 
 def generate_video(
-        driver: webdriver,
+        driver,
         player_name: str, date_start: str, date_end: str | None, team: str,
         FGM: bool = True, FGA: bool = False, ThreePM: bool = False,
         ThreePA: bool = False, OREB: bool = False, DREB: bool = False,
@@ -338,16 +338,18 @@ def pipeline(player_params: dict = {}, video_params: dict = {},
     if "date_end" not in player_params:
         player_params["date_end"] = player_params["date_start"]
 
+    driver = webdriver.Chrome()
+    driver.implicitly_wait(5)
+
     for player_info in name_team_base:
         name, team, base = player_info
         player_params["player_name"] = name
         player_params["team"] = team
         video_params["base_name"] = base
-        driver = webdriver.Chrome()
-        driver.implicitly_wait(30)
         player_params["driver"] = driver
         title, stats_list, video_params["video_urls"] = generate_video(**player_params)
         video_params["stats_list"] = stats_list
         make_video(**video_params)
-        player_params["driver"].quit()
         combine_videos(video_params["base_name"], title)
+
+    driver.quit()

@@ -1,6 +1,8 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
 
 
 table_tag = '//table[starts-with(@class, "Crom_table")]'
@@ -21,17 +23,14 @@ def get_videos(driver: webdriver, url: str, fg: bool = True) -> \
     driver.get(url)
 
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
-
-    retries = 1
-    while ("content unavailable" in body or "no video available" in body or "no data available" in body) \
-        and retries < 3:
+    while "content unavailable" in body or "no video available" in body or "no data available" in body:
+        time.sleep(30)
         driver.refresh()
         body = driver.find_element(By.TAG_NAME, "body").text.lower()
-        retries += 1
-    if retries == 3 and ("content unavailable" in body or "no video available" in body or "no data available" in body):
-        return {}
 
-    table = driver.find_element(By.XPATH, table_tag)
+    wait = WebDriverWait(driver, 120)
+    table = wait.until(EC.visibility_of_element_located((By.XPATH, table_tag)))
+    # table = driver.find_element(By.XPATH, table_tag)
     rows = table.find_elements(By.TAG_NAME, "tr")
 
     rows = rows[1:]
@@ -88,13 +87,13 @@ def sort_plays(driver: webdriver, pbp: str, video_urls: dict[str, list[tuple[str
         desc_raw = row.find_element(By.XPATH, desc_tag).text
         desc = desc_raw.lower()
         if desc in video_urls:
-            time = row.find_element(By.XPATH, time_tag).text
-            if time.startswith("0"):
-                time = time[1:]
+            play_time = row.find_element(By.XPATH, time_tag).text
+            if play_time.startswith("0"):
+                play_time = play_time[1:]
             result.append(
                 (
                     video_urls[desc][0][0], desc_raw,
-                    video_urls[desc][0][1], time
+                    video_urls[desc][0][1], play_time
                 )
             )
             video_urls[desc].pop(0)
