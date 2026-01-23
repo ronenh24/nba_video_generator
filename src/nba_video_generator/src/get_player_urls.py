@@ -63,7 +63,7 @@ def get_player_urls(
     return title, stats, urls
 
 
-def format_box_score(stats: list[str]):
+def format_box_score(stats: list[str]) -> str:
 
     min_played   = stats[1]
     fgm, fga     = stats[2], stats[3]

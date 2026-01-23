@@ -83,23 +83,47 @@ def sort_plays(driver: webdriver, pbp: str, video_urls: dict[str, list[tuple[str
     rows = play_by_play.find_elements(By.TAG_NAME, "article")
 
     result = []
+    observed = set()
+
     for row in rows:
         desc_raw = row.find_element(By.XPATH, desc_tag).text
         desc = desc_raw.lower()
+
         if desc in video_urls:
             play_time = row.find_element(By.XPATH, time_tag).text
             if play_time.startswith("0"):
                 play_time = play_time[1:]
-            result.append(
-                (
-                    video_urls[desc][0][0], desc_raw,
-                    video_urls[desc][0][1], play_time
+
+            video_url, quarter = video_urls[desc][0]
+            time = (quarter, play_time)
+
+            if time not in observed or "free throw" in desc:
+                observed.add(time)
+                result.append(
+                    (
+                        video_url,
+                        desc_raw,
+                        quarter,
+                        play_time,
+                    )
                 )
-            )
+            else:
+                _, original_desc_raw, _, _ = result[-1]
+                result.pop(-1)
+                result.append(
+                    (
+                        video_url,
+                        original_desc_raw + ", " + desc_raw,
+                        quarter,
+                        play_time
+                    )
+                )
+
             video_urls[desc].pop(0)
-            if len(video_urls[desc]) == 0:
+            if not video_urls[desc]:
                 del video_urls[desc]
-            if len(video_urls) == 0:
+
+            if not video_urls:
                 break
 
     return result
