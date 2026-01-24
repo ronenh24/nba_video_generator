@@ -83,7 +83,6 @@ def sort_plays(driver: webdriver, pbp: str, video_urls: dict[str, list[tuple[str
     rows = play_by_play.find_elements(By.TAG_NAME, "article")
 
     result = []
-    observed = set()
 
     for row in rows:
         desc_raw = row.find_element(By.XPATH, desc_tag).text
@@ -93,13 +92,24 @@ def sort_plays(driver: webdriver, pbp: str, video_urls: dict[str, list[tuple[str
             play_time = row.find_element(By.XPATH, time_tag).text
             if play_time.startswith("0"):
                 play_time = play_time[1:]
+            play_time = int(play_time.split(":")[0]) * 60 + int(play_time.split(":")[1])
 
             video_url, quarter = video_urls[desc][0]
-            time = (quarter, play_time)
-
-            if time not in observed or "free throw" in desc:
-                observed.add(time)
-                result.append(
+            if len(result) > 0 and "free throw" not in desc:
+                _, prev_desc, prev_quarter, prev_time = result[-1]
+                if prev_quarter == quarter and prev_time - play_time <= 5 and \
+                        ("foul" not in prev_desc and "rebound" not in desc):
+                    result.pop(-1)
+                    result.append(
+                        (
+                            video_url,
+                            prev_desc + ", " + desc_raw,
+                            quarter,
+                            play_time
+                        )
+                    )
+                else:
+                    result.append(
                     (
                         video_url,
                         desc_raw,
@@ -108,14 +118,12 @@ def sort_plays(driver: webdriver, pbp: str, video_urls: dict[str, list[tuple[str
                     )
                 )
             else:
-                _, original_desc_raw, _, _ = result[-1]
-                result.pop(-1)
                 result.append(
                     (
                         video_url,
-                        original_desc_raw + ", " + desc_raw,
+                        desc_raw,
                         quarter,
-                        play_time
+                        play_time,
                     )
                 )
 
