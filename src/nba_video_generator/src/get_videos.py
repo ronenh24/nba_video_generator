@@ -98,7 +98,7 @@ def sort_plays(driver: webdriver, pbp: str, video_urls: dict[str, list[tuple[str
             if len(result) > 0 and "free throw" not in desc:
                 _, prev_desc, prev_quarter, prev_time = result[-1]
                 if prev_quarter == quarter and prev_time - play_time <= 5 and \
-                        ("foul" not in prev_desc and "rebound" not in desc):
+                        "foul" not in prev_desc and "free throw" not in prev_desc:
                     result.pop(-1)
                     result.append(
                         (
