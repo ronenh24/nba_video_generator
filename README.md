@@ -1,5 +1,8 @@
 # NBA Highlights Video Generator
 
+## Videos
+Posted on [NBA Full Play Highlights](https://www.youtube.com/@NBAFullPlayHighlights).
+
 ## Author
 Ronen Huang  
 
