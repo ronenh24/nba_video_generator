@@ -115,7 +115,7 @@ make_video(
 )
 ```
 
-## **New**
+## Pipeline
 The highlight video can now be made with the ``pipeline`` method where the users provides both player parameters and video parameters as dictionary.
 ```python
 from nba_video_generator.search import pipeline
@@ -158,5 +158,16 @@ name_team_base = [
 pipeline(player_params, video_params, name_team_base)
 ```
 
-## Examples
-The examples can be seen in the ``make_videos_example.ipynb`` notebook which demonstrate the outputs of both methods described above.
+## **Beta**
+The full play videos can also be made from the reliable play by play rather than the unreliable box score. This does not work for compilations yet.
+
+```python
+from nba_video_generator.beta_search import pipeline
+
+pipeline(
+    [
+        ("Booker", "2026-02-19", "phx"),
+    ]
+)
+```
+
