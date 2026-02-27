@@ -173,6 +173,7 @@ def search(driver: webdriver, last_name: str, date: str, team: str,
     with open(list_path, "w", encoding="utf-8") as f:
         for file_path in files:
             safe_path = file_path.replace("\\", "/")
+            safe_path = safe_path.replace("'", r"'\''")  # escape apostrophes
             f.write(f"file '{safe_path}'\n")
 
     output_path = title + ".mp4"
