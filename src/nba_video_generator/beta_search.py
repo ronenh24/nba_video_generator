@@ -20,7 +20,7 @@ desc_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_desc')]"
 video_tag = "//h2[starts-with(@class, 'VideoPlayer_videoTitle')]"
 
 
-def search(driver: webdriver, last_name: str, date: str, team: str,
+def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path: str, 
            fps: int = 30, preset: str = "ultrafast", include_caption: bool = True):
     driver.get(base_url + date)
 
@@ -158,8 +158,6 @@ def search(driver: webdriver, last_name: str, date: str, team: str,
         )
 
     desc_txt.close()
-
-    ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
 
     files = [
         os.path.join(os.path.abspath(base_name), f)

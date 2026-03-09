@@ -9,6 +9,9 @@ Ronen Huang
 ## Time Frame
 August 2025 to Present
 
+## FFmpeg Build
+Download from [https://www.gyan.dev/ffmpeg/builds/](https://www.gyan.dev/ffmpeg/builds/).
+
 ## How the Generator Works
 1. The user provides the full player name (as per NBA website), the date range, the team abbreviated (as per NBA website), and choices of what highlights to include. An example can be seen below.
     ```python
@@ -142,7 +145,8 @@ video_params = {
     "fps": 30,
     "preset": 'ultrafast',
     "segment": 'Play',
-    "include_caption": True
+    "include_caption": True,
+    "ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
 }
 
 name_team_base = [
@@ -167,7 +171,8 @@ from nba_video_generator.beta_search import pipeline
 pipeline(
     [
         ("Booker", "2026-02-19", "phx"),
-    ]
+    ],
+    {"ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"}
 )
 ```
 

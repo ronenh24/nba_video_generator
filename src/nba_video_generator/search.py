@@ -300,8 +300,7 @@ def _make_video_quarter(
     desc_txt.close()
 
 
-def combine_videos(base_name: str, title: str) -> None:
-    ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
+def combine_videos(base_name: str, ffmpeg_path: str, title: str) -> None:
 
     files = [
         os.path.join(os.path.abspath(base_name), f)
@@ -350,6 +349,6 @@ def pipeline(player_params: dict = {}, video_params: dict = {},
         title, stats_list, video_params["video_urls"] = generate_video(**player_params)
         video_params["stats_list"] = stats_list
         make_video(**video_params)
-        combine_videos(video_params["base_name"], title)
+        combine_videos(video_params["base_name"], video_params["ffmpeg_path"], title)
 
     driver.quit()
