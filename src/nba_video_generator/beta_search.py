@@ -63,9 +63,8 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
 
     tabs = driver.find_elements(
         By.CSS_SELECTOR,
-        "nav.GamePlayByPlay_periods__RYwbX button"
+        'nav[class^="GamePlayByPlay_periods"] button'
     )
-
     result = []
     quarter = 1
 
