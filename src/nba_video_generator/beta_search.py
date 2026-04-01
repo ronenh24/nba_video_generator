@@ -7,6 +7,7 @@ import time
 from textwrap import fill
 from typing import Literal
 from datetime import datetime, timedelta
+import shutil
 from moviepy import \
     TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
 from selenium import webdriver
@@ -131,9 +132,10 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
     base_name = last_name.lower()
 
     try:
-        os.makedirs(base_name)
+        shutil.rmtree(base_name)
     except Exception:
         pass
+    os.makedirs(base_name)
 
     desc_txt = open(base_name.lower() + "_description.txt", "w+")
     time_secs = 0
