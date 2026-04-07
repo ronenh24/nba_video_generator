@@ -8,13 +8,16 @@ from textwrap import fill
 from typing import Literal
 from datetime import datetime, timedelta
 import shutil
+import pyautogui
 from moviepy import \
     TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
 from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 
 
 base_url = "https://www.nba.com/games?date="
+
 boxscore_tag = "//a[@data-text='BOX SCORE']"
 time_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_clockElement')]"
 desc_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_desc')]"
@@ -24,6 +27,8 @@ video_tag = "//h2[starts-with(@class, 'VideoPlayer_videoTitle')]"
 def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path: str, 
            fps: int = 30, preset: str = "ultrafast", include_caption: bool = True):
     driver.get(base_url + date)
+
+    driver.maximize_window()
 
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
@@ -113,6 +118,15 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
 
     result = combine_events(result)
 
+    base_name = last_name.lower()
+
+    try:
+        shutil.rmtree(base_name)
+    except Exception:
+        pass
+    os.makedirs(base_name)
+
+    i = 0
     player_urls = []
     for video_url, desc_raw, _, _ in result:
         driver.get(video_url)
@@ -127,17 +141,22 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
         video = driver.find_element(By.CLASS_NAME, 'vjs-tech')
         video_url = video.get_attribute('src')
         if not video_url.endswith("missing.mp4"):
-            player_urls.append((video_url, desc_raw))
+            video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4")
+            driver.get(video_url)
+            driver.switch_to.window(driver.current_window_handle)
+            video_element = driver.find_element("tag name", "video")
+            actions = ActionChains(driver)
+            actions.context_click(video_element).perform()
+            time.sleep(1)
+            pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
+            time.sleep(2)
+            pyautogui.write(video_path)
+            time.sleep(2)
+            pyautogui.press('enter')
+            player_urls.append((base_name + "/temp" + str(i) + ".mp4", desc_raw))
+            i += 1
 
-    base_name = last_name.lower()
-
-    try:
-        shutil.rmtree(base_name)
-    except Exception:
-        pass
-    os.makedirs(base_name)
-
-    desc_txt = open(base_name.lower() + "_description.txt", "w+")
+    desc_txt = open(base_name + "_description.txt", "w+")
     time_secs = 0
 
     for i, (event_url, desc) in enumerate(player_urls):
@@ -154,16 +173,20 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
             clip = video_clip
         time_secs += clip.duration
         clip.write_videofile(
-            base_name.lower() + "/" + base_name.lower() + "_" + date.replace("-", "") + "_play" +
+            base_name + "/" + base_name + "_" + date.replace("-", "") + "_play" +
             str(i) + ".mp4", fps=fps, preset=preset, threads=3
         )
+        clip.close()
+        if include_caption:
+            video_clip.close()
+            desc_clip.close()
 
     desc_txt.close()
 
     files = [
         os.path.join(os.path.abspath(base_name), f)
         for f in os.listdir(base_name)
-        if f.lower().endswith(".mp4")
+        if f.lower().endswith(".mp4") and "temp" not in f
     ]
 
     files.sort(key=os.path.getctime)
@@ -275,17 +298,16 @@ def combine_events(events, max_gap=5):
 
 
 def pipeline(name_date_team: list[tuple[str, str, str]], params: dict = {}):
-    driver = webdriver.Chrome()
-    driver.implicitly_wait(5)
 
     for last_name, date, team in name_date_team:
+        driver = webdriver.Chrome()
+        driver.implicitly_wait(5)
         params["last_name"] = last_name
         params["date"] = date
         params["team"] = team
         params["driver"] = driver
         search(**params)
-
-    driver.close()
+        driver.close()
 
 # pipeline(
 #     [
