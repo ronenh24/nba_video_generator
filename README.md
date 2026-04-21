@@ -12,61 +12,7 @@ August 2025 to Present
 ## FFmpeg Build
 Download from [https://www.gyan.dev/ffmpeg/builds/](https://www.gyan.dev/ffmpeg/builds/).
 
-## How the Generator Works
-1. The user provides the full player name (as per NBA website), the date range, the team abbreviated (as per NBA website), and choices of what highlights to include. An example can be seen below.
-    ```python
-    from nba_video_generator.search import generate_video
-
-    jalen_green_assists_urls = generate_video(
-        player_name="Jalen Green",
-        date_start="2024-11-01", 
-        date_end="2024-11-08",
-        team="hou",
-        FGM=False,
-        FGA=False,
-        ThreePM=False,
-        ThreePA=False,
-        OREB=False,
-        DREB=False,
-        REB=False, 
-        AST=True,
-        STL=False,
-        BLK=False,
-        TO=True,
-        PF=False
-    )
-    ```
-2. The program crawls the NBA website for links to the box score involving the player team.
-3. The program crawls the team box score for links to the events involving the player.
-4. The program crawls the player events for links to the videos.
-
-If field goals or personal fouls are selected as highlight, the corresponding ESPN play by play link is used to determine the times of those events. Then the NBA play by play link is crawled for the videos of those events.
-
-The output returns a dictionary where the keys are the dates and the events are the sorted list of events (represented as a tuple of video url, quarter, and time). An example can be seen below.
-```python
-{
-    '2024-11-02':
-        [
-            (video url 1, '1', '8:12'),
-            (video url 2, '3', '9:50'),
-            (video url 3, '3', '8:52'),
-            (video url 4, '3','2:38')
-        ],
-    '2024-11-04':
-        [
-            (video url 5, '3', '1:37'),
-            (video url 6, '4', '11:28'),
-            (video url 7, '4', '10:54'),
-            (video url 8, '4', '10:28'),
-            (video url 9, '4', '2:10'),
-            (video url 10, '4', '1:34')
-        ],
-    ...
-}
-```
-
-
-### NBA Team Abbreviations
+## NBA Team Abbreviations
 - atl - Atlanta Hawks
 - bkn	- Brooklyn Nets
 - bos	- Boston Celtics
@@ -98,81 +44,29 @@ The output returns a dictionary where the keys are the dates and the events are 
 - uta	- Utah Jazz
 - was	- Washington Wizards
 
-## How to Make Video From Event URLS
-Once the dictionary of event urls are obtained from the ``generate_videos`` method, the user can make the MP4 video with the ``make_video`` method which takes parameters
-- video_urls - dictionary of event urls
-- base_name - name of video
-- fps - frame per second
-- preset - Choose from "ultrafast", "veryfast", "superfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"
-- segment - how to create videos with "Whole", "Game" (one video per game), "Quarter" (one video per quarter), "Play" (one video per play)
-
-An example can be seen below.
-```python
-from nba_video_generator.search import make_video
-
-make_video(
-    video_urls=jalen_green_assists_urls,
-    base_name="jalen_green_assists",
-    fps=30, preset="ultrafast",
-    segment="Whole"
-)
-```
-
-## Pipeline
-The highlight video can now be made with the ``pipeline`` method where the users provides both player parameters and video parameters as dictionary.
-```python
-from nba_video_generator.search import pipeline
-
-player_params = {
-    "date_start": "2025-10-25",
-    "date_end": "2025-10-25",
-    "FGM": False,
-    "FGA": True,
-    "ThreePM": False,
-    "ThreePA": False,
-    "OREB": False,
-    "DREB": False,
-    "REB": True,
-    "AST": True,
-    "STL": True,
-    "BLK": True,
-    "TO": True,
-    "PF": True,
-    "include_ft": True
-}
-
-video_params = {
-    "fps": 30,
-    "preset": 'ultrafast',
-    "segment": 'Play',
-    "include_caption": True,
-    "ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
-}
-
-name_team_base = [
-    ("Kon Knueppel", "cha", "kon"),
-    ("Joel Embiid", "phi", "embiid"),
-    ("Bennedict Mathurin", "ind", "benn"),
-    ("Cedric Coward", "mem", "cedric"),
-    ("Javon Small", "mem", "javon"),
-    ("Christian Braun", "den", "braun"),
-    ("Devin Booker", "phx", "book")
-]
-
-pipeline(player_params, video_params, name_team_base)
-```
-
-## **Beta**
-The full play videos can also be made from the reliable play by play rather than the unreliable box score. This does not work for compilations yet.
+## Beta
+The full play videos can be made from the reliable play by play rather than the unreliable box score. This does not work for compilations yet.
 
 ```python
 from nba_video_generator.beta_search import pipeline
 
 pipeline(
     [
-        ("Booker", "2026-02-19", "phx"),
-    ],
-    {"ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"}
+        ("DiVincenzo", "2026-04-20", "min"),
+    ], 
+    {
+        "ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
+    }
 )
 ```
+
+## Process
+1. Specify the player last name (as per NBA.com website), team abbreviation, and date (yyyy-mm-dd).
+2. Programs crawls through play by play by quarter, keeping a list of links and times.
+3. Events within 5 seconds of each other are merged to a single event.
+4. Plays are concatenated together to make the video.
+
+A video of the process is provided below.
+
+https://www.youtube.com/watch?v=84GDSAL5CeE
 
