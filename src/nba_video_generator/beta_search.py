@@ -234,11 +234,14 @@ def combine_events(events, max_gap=5):
     combined = []
     current = None
 
-    for url, desc, quarter, time in events:
+    i = 0
+    while i < len(events):
+        url, desc, quarter, time = events[i]
         desc_l = desc.lower()
 
         is_free_throw = "free throw" in desc_l
         is_foul = "foul" in desc_l
+        is_off_foul = "offensive foul" in desc_l or "off. foul" in desc_l
 
         event = {
             "url": url,
@@ -246,6 +249,11 @@ def combine_events(events, max_gap=5):
             "quarter": quarter,
             "time": time,
         }
+
+        # 👉 Skip next event if this is an offensive foul
+        if is_off_foul:
+            i += 1
+            continue
 
         if is_free_throw:
             if current:
@@ -258,10 +266,12 @@ def combine_events(events, max_gap=5):
                 current = None
 
             combined.append((url, desc, quarter, time))
+            i += 1
             continue
 
         if current is None:
             current = event
+            i += 1
             continue
 
         same_quarter = quarter == current["quarter"]
@@ -276,7 +286,7 @@ def combine_events(events, max_gap=5):
         if can_merge:
             current["desc"] = f'{current["desc"]}, {desc}'
             current["url"] = url
-            current["time"] = max(current["time"], time) 
+            current["time"] = max(current["time"], time)
         else:
             combined.append((
                 current["url"],
@@ -285,6 +295,8 @@ def combine_events(events, max_gap=5):
                 current["time"],
             ))
             current = event
+
+        i += 1
 
     if current:
         combined.append((
