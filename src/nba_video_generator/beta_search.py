@@ -138,23 +138,18 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
             driver.refresh()
             body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
-        video = driver.find_element(By.CLASS_NAME, 'vjs-tech')
-        video_url = video.get_attribute('src')
-        if not video_url.endswith("missing.mp4"):
-            video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4")
-            driver.get(video_url)
-            driver.switch_to.window(driver.current_window_handle)
-            video_element = driver.find_element("tag name", "video")
-            actions = ActionChains(driver)
-            actions.context_click(video_element).perform()
-            time.sleep(1)
-            pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
-            time.sleep(2)
-            pyautogui.write(video_path)
-            time.sleep(2)
-            pyautogui.press('enter')
-            player_urls.append((base_name + "/temp" + str(i) + ".mp4", desc_raw))
-            i += 1
+        video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4") if i == 0 else "temp" + str(i) + ".mp4"
+
+        video = driver.find_element(By.CSS_SELECTOR, "video.vjs-tech")
+        ActionChains(driver).context_click(video).perform()
+        time.sleep(2)
+        pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
+        time.sleep(2)
+        pyautogui.write(video_path)
+        time.sleep(5)
+        pyautogui.press('enter')
+        player_urls.append((base_name + "/temp" + str(i) + ".mp4", desc_raw))
+        i += 1
 
     desc_txt = open(base_name + "_description.txt", "w+")
     time_secs = 0
