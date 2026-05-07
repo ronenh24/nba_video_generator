@@ -25,7 +25,7 @@ video_tag = "//h2[starts-with(@class, 'VideoPlayer_videoTitle')]"
 
 
 def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path: str, 
-           fps: int = 30, preset: str = "ultrafast", include_caption: bool = True):
+           fps: int = 60, preset: str = "ultrafast", include_caption: bool = True):
     driver.get(base_url + date)
 
     driver.maximize_window()
@@ -141,12 +141,10 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
         video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4") if i == 0 else "temp" + str(i) + ".mp4"
 
         video = driver.find_element(By.CSS_SELECTOR, "video.vjs-tech")
-        ActionChains(driver).context_click(video).perform()
-        time.sleep(2)
+        ActionChains(driver).pause(3).context_click(video).perform()
         pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
-        time.sleep(2)
-        pyautogui.write(video_path)
-        time.sleep(5)
+        time.sleep(3)
+        pyautogui.write(video_path, interval=0.20)
         pyautogui.press('enter')
         player_urls.append((base_name + "/temp" + str(i) + ".mp4", desc_raw))
         i += 1
@@ -169,7 +167,7 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
         time_secs += clip.duration
         clip.write_videofile(
             base_name + "/" + base_name + "_" + date.replace("-", "") + "_play" +
-            str(i) + ".mp4", fps=fps, preset=preset, threads=3
+            str(i) + ".mp4", fps=fps, preset=preset, threads=2
         )
         clip.close()
         if include_caption:
@@ -308,7 +306,7 @@ def pipeline(name_date_team: list[tuple[str, str, str]], params: dict = {}):
 
     for last_name, date, team in name_date_team:
         driver = webdriver.Chrome()
-        driver.implicitly_wait(5)
+        driver.implicitly_wait(10)
         params["last_name"] = last_name
         params["date"] = date
         params["team"] = team
