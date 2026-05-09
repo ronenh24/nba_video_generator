@@ -141,13 +141,15 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
         video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4") if i == 0 else "temp" + str(i) + ".mp4"
 
         video = driver.find_element(By.CSS_SELECTOR, "video.vjs-tech")
-        ActionChains(driver).pause(3).context_click(video).perform()
-        pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
-        time.sleep(3)
-        pyautogui.write(video_path, interval=0.20)
-        pyautogui.press('enter')
-        player_urls.append((base_name + "/temp" + str(i) + ".mp4", desc_raw))
-        i += 1
+        src = video.get_attribute("src")
+        if not src.endswith("missing.mp4"): 
+            ActionChains(driver).pause(3).context_click(video).perform()
+            pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
+            time.sleep(3)
+            pyautogui.write(video_path, interval=0.20)
+            pyautogui.press('enter')
+            player_urls.append((base_name + "/temp" + str(i) + ".mp4", desc_raw))
+            i += 1
 
     desc_txt = open(base_name + "_description.txt", "w+")
     time_secs = 0
