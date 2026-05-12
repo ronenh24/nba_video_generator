@@ -138,6 +138,9 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
             driver.refresh()
             body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
+        if i == 0:
+            driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]').click()
+
         video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4") if i == 0 else "temp" + str(i) + ".mp4"
 
         video = driver.find_element(By.CSS_SELECTOR, "video.vjs-tech")
@@ -151,7 +154,7 @@ def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path:
             player_urls.append((base_name + "/temp" + str(i) + ".mp4", desc_raw))
             i += 1
 
-    desc_txt = open(base_name + "_description.txt", "w+")
+    desc_txt = open(title + " description.txt", "w+")
     time_secs = 0
 
     for i, (event_url, desc) in enumerate(player_urls):
