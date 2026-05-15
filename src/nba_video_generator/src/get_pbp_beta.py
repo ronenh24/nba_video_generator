@@ -26,7 +26,7 @@ def get_pbp(driver: webdriver, base_url: str, date: str, team: str):
             box_score_url = game_url
 
     if box_score_url == "":
-        return {}
+        return None, None
 
     home_away = box_score_url.split("vs")[1]
 

@@ -27,20 +27,21 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
     while current_date <= end_date:
         date = current_date.strftime("%Y-%m-%d")
         data_is_home_team, pbp_url = get_pbp(driver, base_url, date, team)
+    
+        if pbp_url is not None:
+            title, result = get_plays(driver, pbp_url, last_name, data_is_home_team)
 
-        title, result = get_plays(driver, pbp_url, last_name, data_is_home_team)
+            base_name = last_name.lower()
 
-        base_name = last_name.lower()
+            try:
+                shutil.rmtree(base_name)
+            except Exception:
+                pass
+            os.makedirs(base_name)
 
-        try:
-            shutil.rmtree(base_name)
-        except Exception:
-            pass
-        os.makedirs(base_name)
+            player_urls = download_plays(driver, base_name, result)
 
-        player_urls = download_plays(driver, base_name, result)
-
-        write_plays(title, base_name, date, player_urls, ffmpeg_path, include_caption, fps, preset)
+            write_plays(title, base_name, date, player_urls, ffmpeg_path, include_caption, fps, preset)
 
         current_date += timedelta(days=1)
 
