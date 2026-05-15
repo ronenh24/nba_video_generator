@@ -2,326 +2,66 @@
 # Home Team
 # Team Abbreviation
 import os
-import subprocess
-import time
-from textwrap import fill
-from typing import Literal
 from datetime import datetime, timedelta
 import shutil
-import pyautogui
 from moviepy import \
     TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
 from selenium import webdriver
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.by import By
+from nba_video_generator.src.get_pbp_beta import get_pbp
+from nba_video_generator.src.get_plays_beta import get_plays
+from nba_video_generator.src.download_plays_beta import download_plays
+from nba_video_generator.src.write_plays_beta import write_plays
 
 
 base_url = "https://www.nba.com/games?date="
 
-boxscore_tag = "//a[@data-text='BOX SCORE']"
-time_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_clockElement')]"
-desc_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_desc')]"
-video_tag = "//h2[starts-with(@class, 'VideoPlayer_videoTitle')]"
 
-
-def search(driver: webdriver, last_name: str, date: str, team: str, ffmpeg_path: str, 
+def search(driver: webdriver, last_name: str, date_start: str, date_end: str, team: str, ffmpeg_path: str, 
            fps: int = 60, preset: str = "ultrafast", include_caption: bool = True):
-    driver.get(base_url + date)
+    if date_end is None:
+        date_end = date_start
 
-    driver.maximize_window()
+    current_date = datetime.strptime(date_start, "%Y-%m-%d")
+    end_date = datetime.strptime(date_end, "%Y-%m-%d")
 
-    body = driver.find_element(By.TAG_NAME, "body").text.lower()
+    while current_date <= end_date:
+        date = current_date.strftime("%Y-%m-%d")
+        data_is_home_team, pbp_url = get_pbp(driver, base_url, date, team)
 
-    while "content unavailable" in body:
-        driver.refresh()
-        body = driver.find_element(By.TAG_NAME, "body").text.lower()
+        title, result = get_plays(driver, pbp_url, last_name, data_is_home_team)
 
-    box_score_url = ""
+        base_name = last_name.lower()
 
-    game_urls = driver.find_elements(By.XPATH, boxscore_tag)
-
-    for game_url in game_urls:
-        game_url = game_url.get_attribute("href")
-        if team in game_url:
-            box_score_url = game_url
-
-    if box_score_url == "":
-        return {}
-
-    home_away = box_score_url.split("vs")[1]
-
-    if team in home_away:
-        data_is_home_team = "true"
-    else:
-        data_is_home_team = "false"
-
-    pbp_url = box_score_url.rsplit("/", 1)[0] + "/play-by-play"
-
-    driver.get(pbp_url)
-
-    title = last_name + " " + driver.title.rstrip(" Play-by-Play | NBA.com") + " Full Play"
-
-    body = driver.find_element(By.TAG_NAME, "body").text.lower()
-
-    while "content unavailable" in body:
-        driver.refresh()
-        body = driver.find_element(By.TAG_NAME, "body").text.lower()
-
-    tabs = driver.find_elements(
-        By.CSS_SELECTOR,
-        'nav[class^="GamePlayByPlay_periods"] button'
-    )
-    result = []
-    quarter = 1
-
-    for tab in tabs[:-1]:
-        driver.execute_script("arguments[0].click();", tab)
-
-        play_by_play = driver.find_element(By.ID, "playByPlayContainer")
-        rows = play_by_play.find_elements(By.TAG_NAME, "article")
-
-        for i, row in enumerate(rows):
-            if row.get_attribute("data-is-home-team") == data_is_home_team and last_name in row.text:
-                try:
-                    desc_raw = row.find_element(By.XPATH, desc_tag).text
-                    desc = desc_raw.lower()
-                    play_time = row.find_element(By.XPATH, time_tag).text
-                    if play_time.startswith("0"):
-                        play_time = play_time[1:]
-                    play_time = int(play_time.split(":")[0]) * 60 + int(play_time.split(":")[1])
-                    link = row.find_element(By.TAG_NAME, "a")
-                    video_url = link.get_attribute("href")
-                    if "free throw 1 of" in desc:
-                        try:
-                            foul_link, foul_desc = _find_foul_url(rows, i, play_time)
-                            result.append(
-                                (
-                                    foul_link,
-                                    foul_desc,
-                                    quarter,
-                                    play_time,
-                                )
-                            )
-                        except Exception:
-                            pass
-                    result.append(
-                        (
-                            video_url,
-                            desc_raw,
-                            quarter,
-                            play_time
-                        )
-                    )
-                except Exception:
-                    pass
-        quarter += 1
-
-    result = combine_events(result)
-
-    base_name = last_name.lower()
-
-    try:
-        shutil.rmtree(base_name)
-    except Exception:
-        pass
-    os.makedirs(base_name)
-
-    i = 0
-    player_urls = []
-    for video_url, desc_raw, _, _ in result:
-        driver.get(video_url)
-
-        body = driver.find_element(By.TAG_NAME, "body").text.lower()
-
-        while "content unavailable" in body or \
-                "no video available" in body:
-            driver.refresh()
-            body = driver.find_element(By.TAG_NAME, "body").text.lower()
-
-        if i == 0:
-            driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]').click()
-
-        video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4") if i == 0 else "temp" + str(i) + ".mp4"
-
-        video = driver.find_element(By.CSS_SELECTOR, "video.vjs-tech")
-        src = video.get_attribute("src")
-        if not src.endswith("missing.mp4"): 
-            ActionChains(driver).pause(3).context_click(video).perform()
-            pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
-            time.sleep(3)
-            pyautogui.write(video_path, interval=0.20)
-            pyautogui.press('enter')
-            player_urls.append((base_name + "/temp" + str(i) + ".mp4", desc_raw))
-            i += 1
-
-    desc_txt = open(title + " description.txt", "w+")
-    time_secs = 0
-
-    for i, (event_url, desc) in enumerate(player_urls):
-        desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
-        video_clip = VideoFileClip(event_url)
-        if include_caption:
-            desc_clip = TextClip(
-                text=desc, font_size=18, color="white",
-                size=(1280, None)
-            ).with_position("top").with_duration(video_clip.duration)
-            clip = CompositeVideoClip([video_clip, desc_clip], use_bgclip=True)
-            clip.audio = video_clip.audio
-        else:
-            clip = video_clip
-        time_secs += clip.duration
-        clip.write_videofile(
-            base_name + "/" + base_name + "_" + date.replace("-", "") + "_play" +
-            str(i) + ".mp4", fps=fps, preset=preset, threads=2
-        )
-        clip.close()
-        if include_caption:
-            video_clip.close()
-            desc_clip.close()
-
-    desc_txt.close()
-
-    files = [
-        os.path.join(os.path.abspath(base_name), f)
-        for f in os.listdir(base_name)
-        if f.lower().endswith(".mp4") and "temp" not in f
-    ]
-
-    files.sort(key=os.path.getctime)
-
-    list_path = os.path.join(base_name, "file_list.txt")
-    with open(list_path, "w", encoding="utf-8") as f:
-        for file_path in files:
-            safe_path = file_path.replace("\\", "/")
-            safe_path = safe_path.replace("'", r"'\''")  # escape apostrophes
-            f.write(f"file '{safe_path}'\n")
-
-    output_path = title + ".mp4"
-
-    if os.path.exists(output_path):
-        os.remove(output_path)
-
-    subprocess.run([
-        ffmpeg_path, "-f", "concat", "-safe", "0",
-        "-i", list_path, "-c", "copy", output_path
-    ])
-
-
-def _find_foul_url(rows, i, play_time):
-    for j in range(i - 1, -1, -1):
         try:
-            t = rows[j].find_element(By.XPATH, time_tag).text
-            if t.startswith("0"):
-                t = t[1:]
-            t = int(t.split(":")[0]) * 60 + int(t.split(":")[1])
-        except:
-            continue
+            shutil.rmtree(base_name)
+        except Exception:
+            pass
+        os.makedirs(base_name)
 
-        if t != play_time:
-            break
+        player_urls = download_plays(driver, base_name, result)
 
-        desc = rows[j].find_element(By.XPATH, desc_tag).text.lower()
-        if "foul" in desc:
-            link = rows[j].find_element(By.TAG_NAME, "a")
-            return link.get_attribute("href"), rows[j].find_element(By.XPATH, desc_tag).text
+        write_plays(title, base_name, date, player_urls, ffmpeg_path, include_caption, fps, preset)
 
-    return None
+        current_date += timedelta(days=1)
 
 
-def combine_events(events, max_gap=5):
-    combined = []
-    current = None
+def pipeline(name_date_team: list[tuple[str, str, str]] | list[tuple[str, str, str, str]],
+             params: dict = {}):
 
-    i = 0
-    while i < len(events):
-        url, desc, quarter, time = events[i]
-        desc_l = desc.lower()
+    if len(name_date_team[0]) == 3:
+        name_date_team = [
+            (last_name, date_start, date_start, team) 
+            for last_name, date_start, team in name_date_team
+        ]
 
-        is_free_throw = "free throw" in desc_l
-        is_foul = "foul" in desc_l
-        is_off_foul = "offensive foul" in desc_l or "off. foul" in desc_l
-
-        event = {
-            "url": url,
-            "desc": desc,
-            "quarter": quarter,
-            "time": time,
-        }
-
-        # 👉 Skip next event if this is an offensive foul
-        if is_off_foul:
-            i += 1
-            continue
-
-        if is_free_throw:
-            if current:
-                combined.append((
-                    current["url"],
-                    current["desc"],
-                    current["quarter"],
-                    current["time"],
-                ))
-                current = None
-
-            combined.append((url, desc, quarter, time))
-            i += 1
-            continue
-
-        if current is None:
-            current = event
-            i += 1
-            continue
-
-        same_quarter = quarter == current["quarter"]
-        time_diff = abs(current["time"] - time)
-
-        can_merge = (
-            same_quarter
-            and time_diff <= max_gap
-            and "foul" not in current["desc"].lower()
-        )
-
-        if can_merge:
-            current["desc"] = f'{current["desc"]}, {desc}'
-            current["url"] = url
-            current["time"] = max(current["time"], time)
-        else:
-            combined.append((
-                current["url"],
-                current["desc"],
-                current["quarter"],
-                current["time"],
-            ))
-            current = event
-
-        i += 1
-
-    if current:
-        combined.append((
-            current["url"],
-            current["desc"],
-            current["quarter"],
-            current["time"],
-        ))
-
-    return combined
-
-
-def pipeline(name_date_team: list[tuple[str, str, str]], params: dict = {}):
-
-    for last_name, date, team in name_date_team:
+    for last_name, date_start, date_end, team in name_date_team:
         driver = webdriver.Chrome()
         driver.implicitly_wait(10)
         params["last_name"] = last_name
-        params["date"] = date
+        params["date_start"] = date_start
+        params["date_end"] = date_end
         params["team"] = team
         params["driver"] = driver
         search(**params)
         driver.close()
-
-# pipeline(
-#     [
-#        ("Booker", "2026-02-19", "phx"),
-#     ]
-# )
 
