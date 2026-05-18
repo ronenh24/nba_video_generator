@@ -31,17 +31,18 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
         if pbp_url is not None:
             title, result = get_plays(driver, pbp_url, last_name, data_is_home_team)
 
-            base_name = last_name.lower()
+            if len(result) > 0:
+                base_name = last_name.lower()
 
-            try:
-                shutil.rmtree(base_name)
-            except Exception:
-                pass
-            os.makedirs(base_name)
+                try:
+                    shutil.rmtree(base_name)
+                except Exception:
+                    pass
+                os.makedirs(base_name)
 
-            player_urls = download_plays(driver, base_name, result)
+                player_urls = download_plays(driver, base_name, result)
 
-            write_plays(title, base_name, date, player_urls, ffmpeg_path, include_caption, fps, preset)
+                write_plays(title, base_name, date, player_urls, ffmpeg_path, include_caption, fps, preset)
 
         current_date += timedelta(days=1)
 
@@ -49,14 +50,13 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
 def pipeline(name_date_team: list[tuple[str, str, str]] | list[tuple[str, str, str, str]],
              params: dict = {}):
 
-    if len(name_date_team[0]) == 3:
-        name_date_team = [
-            (last_name, date_start, date_start, team) 
-            for last_name, date_start, team in name_date_team
-        ]
+    for i, row in enumerate(name_date_team):
+        if len(row) == 3:
+            name_date_team[i] = (row[0], row[1], row[1], row[2])
 
     for last_name, date_start, date_end, team in name_date_team:
         driver = webdriver.Chrome()
+        driver.maximize_window()
         driver.implicitly_wait(10)
         params["last_name"] = last_name
         params["date_start"] = date_start

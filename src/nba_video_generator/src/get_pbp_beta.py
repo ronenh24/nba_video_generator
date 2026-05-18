@@ -8,8 +8,6 @@ boxscore_tag = "//a[@data-text='BOX SCORE']"
 def get_pbp(driver: webdriver, base_url: str, date: str, team: str):
     driver.get(base_url + date)
 
-    driver.maximize_window()
-
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
     while "content unavailable" in body:

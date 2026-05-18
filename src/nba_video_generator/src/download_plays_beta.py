@@ -22,7 +22,10 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
         if i == 0:
-            driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]').click()
+            try:
+                driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]').click()
+            except:
+                pass
 
         video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4") if i == 0 else "temp" + str(i) + ".mp4"
 
@@ -30,8 +33,14 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             EC.presence_of_element_located((By.CSS_SELECTOR, "video.vjs-tech"))
         )
         src = video.get_attribute("src")
+        
+        try:   
+            driver.find_element(By.CSS_SELECTOR, 'button[data-click="close"]').click()
+        except:
+            pass
+
         if not src.endswith("missing.mp4"): 
-            ActionChains(driver).pause(3).move_to_element(video).context_click(video).perform()
+            ActionChains(driver).move_to_element(video).context_click(video).perform()
             time.sleep(3)
             pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
             time.sleep(3)

@@ -45,7 +45,7 @@ Download from [https://www.gyan.dev/ffmpeg/builds/](https://www.gyan.dev/ffmpeg/
 - was	- Washington Wizards
 
 ## Beta
-The full play videos can be made from the reliable play by play rather than the unreliable box score. This does not work for compilations yet.
+The full play videos can be made from the reliable play by play rather than the unreliable box score.
 
 ```python
 from nba_video_generator.beta_search import pipeline
@@ -60,8 +60,21 @@ pipeline(
 )
 ```
 
+A date range can be specified as well.
+
+```python
+from nba_video_generator.beta_search import pipeline
+
+pipeline(
+    [
+        ("Booker", "2026-04-19", "2026-04-27", "phx"),
+    ],
+    {"ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"}
+)
+```
+
 ## Process
-1. Specify the player last name (as per NBA.com website), team abbreviation, and date (yyyy-mm-dd).
+1. Specify the player last name (as per NBA.com website), team abbreviation, and date(s) (yyyy-mm-dd).
 2. Programs crawls through play by play by quarter, keeping a list of links and times.
 3. Events within 5 seconds of each other are merged to a single event.
 4. Plays are concatenated together to make the video.
