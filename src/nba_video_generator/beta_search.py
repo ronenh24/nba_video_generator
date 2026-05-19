@@ -2,6 +2,7 @@
 # Home Team
 # Team Abbreviation
 import os
+import subprocess
 from datetime import datetime, timedelta
 import shutil
 from moviepy import \
@@ -24,6 +25,9 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
     current_date = datetime.strptime(date_start, "%Y-%m-%d")
     end_date = datetime.strptime(date_end, "%Y-%m-%d")
 
+    if date_start != date_end:
+        f = open("file_list.txt", "w", encoding="utf-8")
+
     while current_date <= end_date:
         date = current_date.strftime("%Y-%m-%d")
         data_is_home_team, pbp_url = get_pbp(driver, base_url, date, team)
@@ -44,7 +48,23 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
 
                 write_plays(title, base_name, date, player_urls, ffmpeg_path, include_caption, fps, preset)
 
+                if date_start != date_end:
+                    f.write(f"file '{os.path.abspath(title + '.mp4')}'\n")
+
         current_date += timedelta(days=1)
+
+    if date_start != date_end:
+        f.close()
+
+        output_path = last_name + " " + date_start + " " + date_end + " Full Play.mp4"
+
+        if os.path.exists(output_path):
+            os.remove(output_path)
+
+        subprocess.run([
+            ffmpeg_path, "-f", "concat", "-safe", "0",
+            "-i", "file_list.txt", "-c", "copy", output_path
+        ])
 
 
 def pipeline(name_date_team: list[tuple[str, str, str]] | list[tuple[str, str, str, str]],
