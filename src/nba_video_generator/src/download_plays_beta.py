@@ -29,7 +29,7 @@ def download_plays(driver: webdriver, base_name: str, result: list):
 
         video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4") if i == 0 else "temp" + str(i) + ".mp4"
 
-        video = WebDriverWait(driver, 10).until(
+        video = WebDriverWait(driver, 5).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "video.vjs-tech"))
         )
         src = video.get_attribute("src")

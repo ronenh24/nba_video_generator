@@ -104,6 +104,7 @@ def combine_events(events, max_gap=5):
         is_free_throw = "free throw" in desc_l
         is_foul = "foul" in desc_l
         is_off_foul = "offensive foul" in desc_l or "off. foul" in desc_l
+        is_timeout = "timeout" in desc_l
 
         event = {
             "url": url,
@@ -112,11 +113,12 @@ def combine_events(events, max_gap=5):
             "time": time,
         }
 
-        # 👉 Skip next event if this is an offensive foul
+        # Skip offensive fouls
         if is_off_foul:
             i += 1
             continue
 
+        # Keep free throws separate
         if is_free_throw:
             if current:
                 combined.append((
@@ -131,10 +133,26 @@ def combine_events(events, max_gap=5):
             i += 1
             continue
 
+        # Keep timeouts separate
+        if is_timeout:
+            if current:
+                combined.append((
+                    current["url"],
+                    current["desc"],
+                    current["quarter"],
+                    current["time"],
+                ))
+                current = None
+
+            i += 1
+            continue
+
         if current is None:
             current = event
             i += 1
             continue
+
+        current_desc_l = current["desc"].lower()
 
         same_quarter = quarter == current["quarter"]
         time_diff = abs(current["time"] - time)
@@ -142,7 +160,7 @@ def combine_events(events, max_gap=5):
         can_merge = (
             same_quarter
             and time_diff <= max_gap
-            and "foul" not in current["desc"].lower()
+            and "foul" not in current_desc_l
         )
 
         if can_merge:
