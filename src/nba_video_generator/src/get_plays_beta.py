@@ -31,7 +31,7 @@ def get_plays(driver: webdriver, pbp_url: str, last_name: str, data_is_home_team
         rows = play_by_play.find_elements(By.TAG_NAME, "article")
 
         for i, row in enumerate(rows):
-            if row.get_attribute("data-is-home-team") == data_is_home_team and last_name in row.text:
+            if row.get_attribute("data-is-home-team") == data_is_home_team and last_name.lower() in row.text.lower():
                 try:
                     desc_raw = row.find_element(By.XPATH, desc_tag).text
                     desc = desc_raw.lower()
