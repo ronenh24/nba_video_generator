@@ -2,3 +2,5 @@ moviepy
 selenium
 Unidecode
 pyautogui
+av
+pyperclip

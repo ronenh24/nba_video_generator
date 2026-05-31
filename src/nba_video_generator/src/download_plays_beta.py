@@ -1,6 +1,7 @@
 import os
 import time
 import pyautogui
+import pyperclip
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
@@ -27,11 +28,12 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             except:
                 pass
 
-        video_path = os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4") if i == 0 else "temp" + str(i) + ".mp4"
+        # video_path = os.path.join(os.path.abspath(base_name), str(i) + ".mp4") if i == 0 else str(i)
 
-        video = WebDriverWait(driver, 5).until(
+        video = WebDriverWait(driver, 3).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "video.vjs-tech"))
         )
+        driver.execute_script("arguments[0].pause();", video)
         src = video.get_attribute("src")
         
         try:   
@@ -39,14 +41,17 @@ def download_plays(driver: webdriver, base_name: str, result: list):
         except:
             pass
 
-        if not src.endswith("missing.mp4"): 
-            ActionChains(driver).move_to_element(video).context_click(video).perform()
-            time.sleep(3)
+        if not src.endswith("missing.mp4"):
+            ActionChains(driver).pause(3).move_to_element(video).context_click(video).perform()
+            time.sleep(1)
             pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
             time.sleep(3)
-            pyautogui.write(video_path, interval=0.20)
+            pyautogui.hotkey('ctrl', 'c')
+            clip_name = pyperclip.paste()
+            if i == 0:
+                pyautogui.write(os.path.join(os.path.abspath(base_name), clip_name + ".mp4"), interval=0.10)
             pyautogui.press('enter')
-            player_urls.append((os.path.join(os.path.abspath(base_name), "temp" + str(i) + ".mp4"), desc_raw))
+            player_urls.append((os.path.join(os.path.abspath(base_name), clip_name + ".mp4"), desc_raw))
             i += 1
 
     return player_urls

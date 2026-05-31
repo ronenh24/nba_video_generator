@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nba-video-generator"
-version = "3.0.14"
+version = "3.0.15"
 authors = [
   { name="Ronen Huang", email="ronenhuang24@gmail.com" },
 ]
@@ -16,11 +16,14 @@ dependencies = [
     "selenium",
     "Unidecode",
     "pyautogui",
+    "av",
+    "pyperclip",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: 
+    OSI Approved :: Apache Software License",
 ]
 
 [project.urls]
