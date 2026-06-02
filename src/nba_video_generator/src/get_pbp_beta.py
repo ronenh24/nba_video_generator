@@ -1,5 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 boxscore_tag = "//a[@data-text='BOX SCORE']"
@@ -16,7 +18,9 @@ def get_pbp(driver: webdriver, base_url: str, date: str, team: str):
 
     box_score_url = ""
 
-    game_urls = driver.find_elements(By.XPATH, boxscore_tag)
+    game_urls = WebDriverWait(driver, 3).until(
+        EC.presence_of_all_elements_located((By.XPATH, boxscore_tag))
+    )
 
     for game_url in game_urls:
         game_url = game_url.get_attribute("href")

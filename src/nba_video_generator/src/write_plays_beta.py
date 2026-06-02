@@ -6,9 +6,10 @@ import av
 #     TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
 
 
-def write_plays(title: str, base_name: str, date: str, player_urls: list[tuple[str, str]], ffmpeg_path: str, preset: str):
-    desc_txt = open(title + " description.txt", "w+")
-    time_secs = 0
+def write_plays(title: str, base_name: str, date: str, player_urls: list[tuple[str, str]], ffmpeg_path: str, preset: str,
+                time_secs: float = 0, desc_txt = None):
+    if desc_txt is None:
+        desc_txt = open(title + " description.txt", "w+")
 
     for i, (event_url, desc) in enumerate(player_urls):
         desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs)) + " - " + desc + "\n")
@@ -42,7 +43,7 @@ def write_plays(title: str, base_name: str, date: str, player_urls: list[tuple[s
         #     video_clip.close()
         #     desc_clip.close()
 
-    desc_txt.close()
+    # desc_txt.close()
 
     files = [
         os.path.join(os.path.abspath(base_name), f)
@@ -68,7 +69,9 @@ def write_plays(title: str, base_name: str, date: str, player_urls: list[tuple[s
         [
             ffmpeg_path, "-f", "concat", "-safe", "0", "-i", list_path,
             "-vf", "drawbox=x=1070:y=0:w=210:h=40:color=black@1:t=fill", "-c:v", "libx264",
-            "-crf", "10", "-c:a", "copy", output_path
+            "-crf", "18", "-preset", "veryfast", "-c:a", "copy", output_path
         ],
         check=True
     )
+
+    return time_secs, desc_txt

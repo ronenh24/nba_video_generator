@@ -42,16 +42,18 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             pass
 
         if not src.endswith("missing.mp4"):
-            ActionChains(driver).pause(3).move_to_element(video).context_click(video).perform()
+            ActionChains(driver).pause(2).move_to_element(video).context_click(video).perform()
             time.sleep(1)
             pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
-            time.sleep(3)
+            time.sleep(2)
             pyautogui.hotkey('ctrl', 'c')
             clip_name = pyperclip.paste()
             if i == 0:
+                time.sleep(2)
                 pyautogui.write(os.path.join(os.path.abspath(base_name), clip_name + ".mp4"), interval=0.10)
             pyautogui.press('enter')
             player_urls.append((os.path.join(os.path.abspath(base_name), clip_name + ".mp4"), desc_raw))
             i += 1
+            time.sleep(3)
 
     return player_urls

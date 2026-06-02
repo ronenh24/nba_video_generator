@@ -23,11 +23,16 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
     if date_end is None:
         date_end = date_start
 
+    time_secs = 0
+    desc_txt = None
+
     current_date = datetime.strptime(date_start, "%Y-%m-%d")
     end_date = datetime.strptime(date_end, "%Y-%m-%d")
 
     if date_start != date_end:
         f = open("file_list.txt", "w", encoding="utf-8")
+        desc_txt = open(last_name + " " + date_start + " " + date_end + " description.txt", "w", encoding="utf-8")
+        titles = []
 
     while current_date <= end_date:
         date = current_date.strftime("%Y-%m-%d")
@@ -47,12 +52,18 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
 
                 player_urls = download_plays(driver, base_name, result)
 
-                write_plays(title, base_name, date, player_urls, ffmpeg_path, preset)
+                time_secs, desc_txt = write_plays(
+                    title, base_name, date, player_urls, ffmpeg_path, preset, time_secs, desc_txt
+                )
 
                 if date_start != date_end:
                     f.write(f"file '{os.path.abspath(title + '.mp4')}'\n")
+                    titles.append(os.path.abspath(title + '.mp4'))
 
         current_date += timedelta(days=1)
+
+    if desc_txt is not None:
+        desc_txt.close()
 
     if date_start != date_end:
         f.close()
@@ -66,6 +77,9 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
             ffmpeg_path, "-f", "concat", "-safe", "0",
             "-i", "file_list.txt", "-c", "copy", output_path
         ])
+
+        for title in titles:
+            os.remove(title)
 
 
 def pipeline(name_date_team: list[tuple[str, str, str]] | list[tuple[str, str, str, str]],
