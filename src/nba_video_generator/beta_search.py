@@ -25,6 +25,7 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
 
     time_secs = 0
     desc_txt = None
+    base_name = last_name.lower()
 
     current_date = datetime.strptime(date_start, "%Y-%m-%d")
     end_date = datetime.strptime(date_end, "%Y-%m-%d")
@@ -42,8 +43,6 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
             title, result = get_plays(driver, pbp_url, last_name, data_is_home_team)
 
             if len(result) > 0:
-                base_name = last_name.lower()
-
                 try:
                     shutil.rmtree(base_name)
                 except Exception:
@@ -61,6 +60,11 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
                     titles.append(os.path.abspath(title + '.mp4'))
 
         current_date += timedelta(days=1)
+
+    try:
+        shutil.rmtree(base_name)
+    except Exception:
+        pass
 
     if desc_txt is not None:
         desc_txt.close()

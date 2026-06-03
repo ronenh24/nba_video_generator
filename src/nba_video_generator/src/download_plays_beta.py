@@ -38,14 +38,14 @@ def download_plays(driver: webdriver, base_name: str, result: list):
         
         try:   
             driver.find_element(By.CSS_SELECTOR, 'button[data-click="close"]').click()
-        except:
+        except Exception:
             pass
 
         if not src.endswith("missing.mp4"):
             ActionChains(driver).pause(2).move_to_element(video).context_click(video).perform()
             time.sleep(1)
             pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
-            time.sleep(2)
+            time.sleep(3)
             pyautogui.hotkey('ctrl', 'c')
             clip_name = pyperclip.paste()
             if i == 0:
