@@ -69,9 +69,8 @@ def write_plays(title: str, base_name: str, date: str, player_urls: list[tuple[s
         [
             ffmpeg_path, "-f", "concat", "-safe", "0", "-i", list_path,
             "-vf", "drawbox=x=1070:y=0:w=210:h=40:color=black@1:t=fill", "-c:v", "libx264",
-            "-crf", "18", "-preset", "veryfast", "-c:a", "copy", output_path
-        ],
-        check=True
+            "-crf", "10", "-preset", "medium", "-c:a", "copy", output_path
+        ], check=True
     )
 
     return time_secs, desc_txt

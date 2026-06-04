@@ -80,7 +80,7 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
         subprocess.run([
             ffmpeg_path, "-f", "concat", "-safe", "0",
             "-i", "file_list.txt", "-c", "copy", output_path
-        ])
+        ], check=True)
 
         for title in titles:
             os.remove(title)
