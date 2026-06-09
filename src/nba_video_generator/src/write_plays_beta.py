@@ -2,8 +2,6 @@ import os
 import subprocess
 import time
 import av
-# from moviepy import \
-#     TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
 
 
 def write_plays(title: str, base_name: str, date: str, player_urls: list[tuple[str, str]], ffmpeg_path: str, preset: str,
@@ -22,34 +20,16 @@ def write_plays(title: str, base_name: str, date: str, player_urls: list[tuple[s
             "-movflags", "+faststart", "-y",
             base_name + "/" + base_name + "_" + date.replace("-", "") + "_play" + str(i) + ".mp4"
         ], check=True)
-        # video_clip = VideoFileClip(event_url)
-        # if include_caption:
-        #     desc_clip = TextClip(
-        #         text=desc, font_size=18, color="white",
-        #         size=(1280, None)
-        #     ).with_position("top").with_duration(video_clip.duration)
-        #    clip = CompositeVideoClip([video_clip, desc_clip], use_bgclip=True)
-        #     clip.audio = video_clip.audio
-        # else:
-        #     clip = video_clip
         with av.open(event_url) as container:
             time_secs += container.duration / 1e6
-        # clip.write_videofile(
-        #     base_name + "/" + base_name + "_" + date.replace("-", "") + "_play" +
-        #     str(i) + ".mp4", fps=fps, preset=preset, threads=2
-        # )
-        # clip.close()
-        # if include_caption:
-        #     video_clip.close()
-        #     desc_clip.close()
+        os.remove(event_url)
 
-    # desc_txt.close()
+    try:
+        os.remove("temp.txt")
+    except Exception:
+        pass
 
-    files = [
-        os.path.join(os.path.abspath(base_name), f)
-        for f in os.listdir(base_name)
-        if base_name in f
-    ]
+    files = [os.path.join(os.path.abspath(base_name), f) for f in os.listdir(base_name)]
 
     files.sort(key=os.path.getctime)
 
