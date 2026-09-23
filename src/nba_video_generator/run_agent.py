@@ -41,14 +41,14 @@ def main() -> None:
         schedule.run_pending()
         time.sleep(60)
 
-def nba_agent(date: str | None = None, ffmpeg_path: str | None = None):
+def nba_agent(date: str | None = None, ffmpeg_path: str | None = None, threshold: bool = True):
     if date is None:
         date = date_cls.today().isoformat()
 
     if ffmpeg_path is None:
         ffmpeg_path = FFMPEG_PATH
 
-    run_for_date(date, ffmpeg_path)
+    run_for_date(date, ffmpeg_path, threshold)
 
 if __name__ == "__main__":
     main()

@@ -8,7 +8,7 @@ from selenium import webdriver
 from .config import STATE_FILE, FFMPEG_PATH
 from .team_map import abbr_for
 from .scraper import get_boxscore_urls_for_date, parse_boxscore
-from .significance import rule_based_candidates, ollama_judge, ollama_judge_rule_based
+from .significance import rule_based_candidates, ollama_judge
 
 # Your existing video-generation pipeline (unchanged).
 from nba_video_generator.beta_search import pipeline
@@ -27,7 +27,7 @@ def _save_state(state: dict) -> None:
 
 
 def run_for_date(
-    target_date: str | None = None, ffmpeg_path: str | None = None, rule_based: bool = False
+    target_date: str | None = None, ffmpeg_path: str | None = None, threshold: bool = True
 ) -> list[tuple[str, str, str, str]]:
     """
     Scan every box score for `target_date` (YYYY-MM-DD, defaults to today),
@@ -60,11 +60,9 @@ def run_for_date(
             (team_a, players_a), (team_b, players_b) = list(teams.items())
             game_label = f"{team_a} @ {team_b}"
 
-            if rule_based:
-                candidates = rule_based_candidates(team_a, players_a) + rule_based_candidates(team_b, players_b)
-                picks = ollama_judge_rule_based(game_label, candidates)
-            else:
-                picks = ollama_judge(game_label, teams)
+            candidates = rule_based_candidates(team_a, players_a, threshold) + \
+                rule_based_candidates(team_b, players_b, threshold)
+            picks = ollama_judge(game_label, candidates)
 
             print(f"  {game_label}: {len(picks)} highlight-worthy performance(s)")
 

@@ -26,9 +26,9 @@ FFMPEG_PATH = os.environ.get(
 THRESHOLDS = {
     "PTS": 20,
     "REB": 10,
-    "AST": 5,
-    "STL": 2,
-    "BLK": 2,
+    "AST": 8,
+    "STL": 3,
+    "BLK": 3,
     "3PM": 5,
 }
 TRIPLE_DOUBLE_CATS = ["PTS", "REB", "AST", "STL", "BLK"]
