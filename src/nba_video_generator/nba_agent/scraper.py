@@ -16,15 +16,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from .config import BASE_GAMES_URL, SCRAPE_MAX_ATTEMPTS, SCRAPE_RETRY_BACKOFF_SECONDS
-
-# Confirmed column order for nba.com's box-score table (PLAYER is its own
-# cell, handled separately). Used instead of scraping <thead> text so a
-# markup tweak there can't silently misalign stats.
-STAT_COLUMNS = [
-    "MIN", "FGM", "FGA", "FG%", "3PM", "3PA", "3P%", "FTM", "FTA", "FT%",
-    "OREB", "DREB", "REB", "AST", "STL", "BLK", "TO", "PF", "PTS", "+/-",
-]
+from .config import BASE_GAMES_URL, SCRAPE_MAX_ATTEMPTS, SCRAPE_RETRY_BACKOFF_SECONDS, STAT_COLUMNS
 
 
 def _retry_scrape(description: str, default_factory):

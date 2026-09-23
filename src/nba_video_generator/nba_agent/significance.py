@@ -2,7 +2,7 @@
 import json
 import requests
 
-from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN
+from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN, STAT_COLUMNS
 
 
 def _num(value, default: float = 0.0) -> float:
@@ -77,7 +77,7 @@ def rule_based_candidates(team_name: str, players: list[dict]) -> list[dict]:
     return candidates
 
 
-def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
+def ollama_judge_rule_based(game_label: str, candidates: list[dict]) -> list[dict]:
     """
     Ask a local Ollama model which of the pre-filtered (and already
     factually-labeled) candidates is genuinely highlight-reel worthy —
@@ -159,3 +159,97 @@ def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
         return candidates
 
     return [c for c in candidates if id_for(c) in keep_ids]
+
+
+def ollama_judge(game_label: str, teams: dict[str, list[dict]]) -> list[dict]:
+    """
+    Send every player's full box-score stat line to Ollama.
+    Ollama decides which players are worth highlighting.
+    Returns the original player dictionaries unchanged.
+    """
+
+    players = []
+
+    for team_name, team_players in teams.items():
+        for player in team_players:
+            players.append({
+                **player,
+                "TEAM": team_name,
+            })
+
+    if not players:
+        return []
+
+    lines = []
+
+    for i, p in enumerate(players):
+        stats = ", ".join(
+            f"{column}={p.get(column, '')}"
+            for column in STAT_COLUMNS
+        )
+
+        lines.append(
+            f'{i}: {p["PLAYER"]} ({p["TEAM"]}): {stats}'
+        )
+
+    prompt = (
+        "ROLE\n"
+        "You are an NBA highlights producer. "
+        f"Review every player from this game ({game_label}) and decide "
+        "which performances deserve a highlight video.\n\n"
+
+        "PLAYER DATA\n"
+        "The following contains the complete box-score stat line for every "
+        "player who played. Treat these numbers as authoritative.\n\n"
+
+        + "\n".join(lines)
+
+        + "\n\n"
+        "RULES\n"
+        "1. You may ONLY select players from the supplied list.\n"
+        "2. Judge the complete stat line, including scoring, efficiency, "
+        "rebounds, assists, steals, blocks, turnovers, and +/-.\n"
+        "3. Consider genuinely notable performances such as elite scoring, "
+        "triple-doubles, unusual statistical combinations, exceptional "
+        "shooting, or major defensive production.\n"
+        "4. Do not invent game context that is not provided.\n"
+        "5. Do not invent, modify, or restate player statistics.\n"
+        "6. Return player indexes rather than player names so there is no "
+        "ambiguity when names are duplicated.\n"
+        "7. It is valid to select nobody.\n\n"
+
+        "OUTPUT\n"
+        'Return exactly one JSON object in this format: '
+        '{"keep": [0, 3, 7]}\n'
+        "The numbers must correspond exactly to the player indexes above."
+    )
+
+    resp = requests.post(
+        f"{OLLAMA_HOST}/api/chat",
+        json={
+            "model": OLLAMA_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "format": "json",
+            "stream": False,
+        },
+        timeout=120,
+    )
+    resp.raise_for_status()
+
+    content = resp.json()["message"]["content"]
+
+    try:
+        keep_indexes = json.loads(content).get("keep", [])
+        keep_indexes = {
+            int(i) for i in keep_indexes
+            if isinstance(i, (int, float, str)) and str(i).isdigit()
+        }
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        # Fail safe: return nobody if the model gives malformed selection.
+        return []
+
+    return [
+        player
+        for i, player in enumerate(players)
+        if i in keep_indexes
+    ]

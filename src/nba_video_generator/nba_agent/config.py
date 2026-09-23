@@ -42,3 +42,11 @@ BASE_GAMES_URL = "https://www.nba.com/games?date={date}"
 # retries — reloading and backing off — before giving up on a page.
 SCRAPE_MAX_ATTEMPTS = int(os.environ.get("SCRAPE_MAX_ATTEMPTS", 3))
 SCRAPE_RETRY_BACKOFF_SECONDS = int(os.environ.get("SCRAPE_RETRY_BACKOFF_SECONDS", 4))
+
+# Confirmed column order for nba.com's box-score table (PLAYER is its own
+# cell, handled separately). Used instead of scraping <thead> text so a
+# markup tweak there can't silently misalign stats.
+STAT_COLUMNS = [
+    "MIN", "FGM", "FGA", "FG%", "3PM", "3PA", "3P%", "FTM", "FTA", "FT%",
+    "OREB", "DREB", "REB", "AST", "STL", "BLK", "TO", "PF", "PTS", "+/-",
+]
