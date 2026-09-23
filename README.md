@@ -12,6 +12,12 @@ August 2025 to Present
 ## FFmpeg Build
 Download from [https://www.gyan.dev/ffmpeg/builds/](https://www.gyan.dev/ffmpeg/builds/).
 
+## Ollama Build
+Download from [https://ollama.com/download](https://ollama.com/download) and pull one time.
+```bash
+ollama pull llama3.1
+```
+
 ## NBA Team Abbreviations
 - atl - Atlanta Hawks
 - bkn	- Brooklyn Nets
@@ -44,7 +50,7 @@ Download from [https://www.gyan.dev/ffmpeg/builds/](https://www.gyan.dev/ffmpeg/
 - uta	- Utah Jazz
 - was	- Washington Wizards
 
-## Beta
+## Manually Make Videos
 The full play videos can be made from the reliable play by play rather than the unreliable box score.
 
 ```python
@@ -83,3 +89,15 @@ A video of the process is provided below.
 
 [https://www.youtube.com/watch?v=84GDSAL5CeE](https://www.youtube.com/watch?v=-1npjVtfezU)
 
+## Automatically Make Videos With Agent - **NEW**
+Makes videos of the LLM determined best player performances of specified date.
+
+```python
+from nba_video_generator.run_agent import nba_agent
+
+date = "2025-12-25"
+
+ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
+
+nba_agent(date, ffmpeg_path)
+```

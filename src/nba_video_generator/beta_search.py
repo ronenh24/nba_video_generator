@@ -6,8 +6,6 @@ import subprocess
 import time
 from datetime import datetime, timedelta
 import shutil
-from moviepy import \
-    TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
 from selenium import webdriver
 from nba_video_generator.src.get_pbp_beta import get_pbp
 from nba_video_generator.src.get_plays_beta import get_plays

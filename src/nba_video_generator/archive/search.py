@@ -12,11 +12,11 @@ from datetime import datetime, timedelta
 from moviepy import \
     TextClip, VideoFileClip, CompositeVideoClip, concatenate_videoclips
 from selenium import webdriver
-from nba_video_generator.src.get_box_scores import \
+from src.nba_video_generator.archive.src.get_box_scores import \
     get_box_scores, get_free_throws_or_fouls
-from nba_video_generator.src.get_player_urls import \
+from src.nba_video_generator.archive.src.get_player_urls import \
     get_player_urls, get_ft_urls, get_foul_urls
-from nba_video_generator.src.get_videos import \
+from src.nba_video_generator.archive.src.get_videos import \
     get_videos, get_ft_or_foul_videos, sort_plays
 
 

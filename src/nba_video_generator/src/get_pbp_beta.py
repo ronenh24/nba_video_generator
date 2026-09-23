@@ -18,9 +18,12 @@ def get_pbp(driver: webdriver, base_url: str, date: str, team: str):
 
     box_score_url = ""
 
-    game_urls = WebDriverWait(driver, 3).until(
-        EC.presence_of_all_elements_located((By.XPATH, boxscore_tag))
-    )
+    try:
+        game_urls = WebDriverWait(driver, 3).until(
+            EC.presence_of_all_elements_located((By.XPATH, boxscore_tag))
+        )
+    except Exception:
+        return None, None
 
     for game_url in game_urls:
         game_url = game_url.get_attribute("href")

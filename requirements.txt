@@ -4,3 +4,7 @@ Unidecode
 pyautogui
 av
 pyperclip
+beautifulsoup4
+requests
+schedule
+
