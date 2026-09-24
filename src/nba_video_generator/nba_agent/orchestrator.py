@@ -46,6 +46,7 @@ def run_for_date(
     driver.maximize_window()
 
     jobs: list[tuple[str, str, str, str]] = []
+    stats = []
 
     try:
         boxscore_urls = get_boxscore_urls_for_date(driver, target_date)
@@ -79,14 +80,18 @@ def run_for_date(
                     print(f"    - skipping {pick['PLAYER']} (already processed today)")
                     continue
 
-                print(f"    -> queuing video: {pick['PLAYER']} ({team_abbr}) — {pick['REASON']}")
+                stat = f"{pick['PLAYER']} ({team_abbr}) — {pick['REASON']}"
+                print(f"    -> queuing video: {stat}")
                 jobs.append((last_name, target_date, target_date, team_abbr))
+                stats.append(stat)
                 already_done.add(key)
     finally:
         driver.close()
 
     if jobs:
         pipeline(jobs, {"ffmpeg_path": ffmpeg_path})
+        for stat in stats:
+            print(stat)
 
     state[target_date] = sorted(already_done)
     _save_state(state)

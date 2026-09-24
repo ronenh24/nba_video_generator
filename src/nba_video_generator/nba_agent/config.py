@@ -26,7 +26,7 @@ FFMPEG_PATH = os.environ.get(
 THRESHOLDS = {
     "PTS": 20,
     "REB": 10,
-    "AST": 8,
+    "AST": 7,
     "STL": 3,
     "BLK": 3,
     "3PM": 5,

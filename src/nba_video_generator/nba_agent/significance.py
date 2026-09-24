@@ -127,12 +127,20 @@ def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
             "model": OLLAMA_MODEL,
             "messages": [{"role": "user", "content": prompt}],
             "format": "json",
-            "stream": False,
+            "stream": True,
         },
-        timeout=240,
+        timeout=120,
     )
     resp.raise_for_status()
-    content = resp.json()["message"]["content"]
+
+    content = ""
+
+    for line in resp.iter_lines():
+        if line:
+            chunk = line.decode("utf-8")
+            data = json.loads(chunk)
+
+            content += data.get("message", {}).get("content", "")
 
     try:
         keep_ids = set(json.loads(content).get("keep", []))
