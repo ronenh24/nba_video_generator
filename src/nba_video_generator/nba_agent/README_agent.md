@@ -26,7 +26,7 @@ Drops into your existing `nba_video_generator` project. Every run:
 ```bash
 # 1. Install Ollama and pull a model (one-time)
 #    https://ollama.com/download
-ollama pull llama3.1
+ollama pull llama3.2:3b
 
 # 2. Install the extra Python deps
 pip install -r requirements_agent.txt

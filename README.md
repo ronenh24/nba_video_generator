@@ -15,7 +15,7 @@ Download from [https://www.gyan.dev/ffmpeg/builds/](https://www.gyan.dev/ffmpeg/
 ## Ollama Build
 Download from [https://ollama.com/download](https://ollama.com/download) and pull one time.
 ```bash
-ollama pull llama3.1
+ollama pull llama3.2:3b
 ```
 
 ## NBA Team Abbreviations

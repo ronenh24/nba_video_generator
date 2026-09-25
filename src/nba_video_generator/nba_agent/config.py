@@ -3,9 +3,9 @@ import os
 
 # --- Ollama settings ---
 # Requires a local Ollama server (https://ollama.com) with a model pulled,
-# e.g.:  ollama pull llama3.1
+# e.g.:  ollama pull gemma3:4b
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
 
 # --- Paths ---
 # Tracks which (player, team) pairs already had a video made for a given
@@ -26,9 +26,9 @@ FFMPEG_PATH = os.environ.get(
 THRESHOLDS = {
     "PTS": 20,
     "REB": 10,
-    "AST": 7,
-    "STL": 3,
-    "BLK": 3,
+    "AST": 5,
+    "STL": 2,
+    "BLK": 2,
     "3PM": 5,
 }
 TRIPLE_DOUBLE_CATS = ["PTS", "REB", "AST", "STL", "BLK"]

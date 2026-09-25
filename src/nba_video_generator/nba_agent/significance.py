@@ -2,7 +2,7 @@
 import json
 import requests
 
-from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN, STAT_COLUMNS
+from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN
 
 
 def _num(value, default: float = 0.0) -> float:
@@ -90,7 +90,7 @@ def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
         f"game ({game_label}) get a highlight video made tonight.\n\n"
         "INPUT\n"
         "Each line below is a candidate who already cleared a statistical "
-        "bar. The REASON text for each was computed directly from the box "
+        "bar. The REASON text for each was the statline directly from the box "
         "score and is a verified, immutable fact — treat it the same way "
         "you'd treat a number handed to you by a calculator.\n\n"
         + "\n".join(lines)
@@ -102,18 +102,15 @@ def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
         "REASON or +/- value. If you disagree with how impressive it "
         "sounds, that's a reason to cut the player, not to edit the text.\n"
         "3. Do not invent context you weren't given (final score, minute of "
-        "the game, opponent record, etc.). Judge only from the REASON and "
-        "+/- shown.\n"
+        "the game, opponent record, etc.). Judge only from the REASON shown.\n"
         "4. Output ONLY the JSON object described below — no markdown code "
         "fences, no commentary, no explanation before or after it.\n\n"
         "SELECTION CRITERIA\n"
         "KEEP a player if their line reflects real, winning-relevant impact: "
         "elite scoring, a triple/quadruple-double, a rare stat combo, "
         "defensive dominance (steals/blocks), or a hot shooting night that "
-        "plausibly moved the game (+/- is positive or close to even).\n"
-        "CUT a player if the line looks like empty garbage-time stat "
-        "padding: a clearly negative +/- (their team got blown out while "
-        "they compiled the counting stats) with no other signal of impact.\n\n"
+        "plausibly moved the game.\n"
+        "CUT a player if the line looks like empty garbage-time stat padding.\n\n"
         "OUTPUT FORMAT\n"
         'Respond with exactly one JSON object: {"keep": ["Player Name (TEAM)", ...]} '
         "using the identical \"Player Name (TEAM)\" strings shown in the "
@@ -129,24 +126,27 @@ def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
             "format": "json",
             "stream": True,
         },
-        timeout=120,
+        timeout=1000,
     )
+
     resp.raise_for_status()
 
     content = ""
-
-    for line in resp.iter_lines():
-        if line:
-            chunk = line.decode("utf-8")
-            data = json.loads(chunk)
-
-            content += data.get("message", {}).get("content", "")
-
     try:
+        for line in resp.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+
+            chunk = json.loads(line)
+
+            message = chunk.get("message", {})
+            content += message.get("content", "")
+
+            if chunk.get("done"):
+                break
+
         keep_ids = set(json.loads(content).get("keep", []))
-    except (json.JSONDecodeError, KeyError):
-        # Model didn't return clean JSON — fail safe to the full rule-based
-        # list rather than silently dropping a real performance.
+    except (json.JSONDecodeError, KeyError, TypeError):
         return candidates
 
     return [c for c in candidates if id_for(c) in keep_ids]
