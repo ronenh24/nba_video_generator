@@ -2,6 +2,7 @@
 import json
 import os
 from datetime import date as date_cls
+import unicodedata
 
 from selenium import webdriver
 
@@ -24,6 +25,13 @@ def _load_state() -> dict:
 def _save_state(state: dict) -> None:
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)
+
+
+def _remove_accents(text):
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text)
+        if unicodedata.category(c) != "Mn"
+    )
 
 
 def run_for_date(
@@ -68,7 +76,7 @@ def run_for_date(
             print(f"  {game_label}: {len(picks)} highlight-worthy performance(s)")
 
             for pick in picks:
-                last_name = pick["PLAYER"].split()[-1]
+                last_name = _remove_accents(pick["PLAYER"].split()[-1])
                 try:
                     team_abbr = abbr_for(pick["TEAM"])
                 except KeyError as e:
@@ -90,8 +98,8 @@ def run_for_date(
 
     if jobs:
         pipeline(jobs, {"ffmpeg_path": ffmpeg_path})
-        for stat in stats:
-            print(stat)
+        with open("statlines.txt", "w", encoding="utf-8") as f:
+            f.writelines(stats)
 
     state[target_date] = sorted(already_done)
     _save_state(state)

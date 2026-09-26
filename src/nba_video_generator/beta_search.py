@@ -3,7 +3,6 @@
 # Team Abbreviation
 import os
 import subprocess
-import time
 from datetime import datetime, timedelta
 import shutil
 from selenium import webdriver
