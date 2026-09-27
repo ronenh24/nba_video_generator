@@ -89,7 +89,15 @@ def run_for_date(
                     continue
 
                 stat = f"{pick['PLAYER']} ({team_abbr}) — {pick['REASON']}"
-                print(f"    -> queuing video: {stat}")
+
+                while True:
+                    print(f"    -> queuing video: {stat}")
+                    choice = input("Approved Yes (y) / No (n): ").lower()
+
+                    if choice in ["y", "n"]:
+                        print()
+                        break
+                
                 jobs.append((last_name, target_date, target_date, team_abbr))
                 stats.append(stat)
                 already_done.add(key)
