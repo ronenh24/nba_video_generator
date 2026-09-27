@@ -77,6 +77,10 @@ def run_for_date(
 
             for pick in picks:
                 last_name = _remove_accents(pick["PLAYER"].split()[-1])
+                first_name = _remove_accents(" ".join(pick["PLAYER"].split()[:-1]))
+                if last_name == "Sr." or last_name == "Jr." or last_name == "II" or last_name == "III":
+                    last_name = _remove_accents(" ".join(pick["PLAYER"].split()[-2:]))
+                    first_name = _remove_accents(" ".join(pick["PLAYER"].split()[:-2]))
                 try:
                     team_abbr = abbr_for(pick["TEAM"])
                 except KeyError as e:
@@ -96,7 +100,7 @@ def run_for_date(
 
                     if choice in ["y", "n"]:
                         if choice == "y":
-                            jobs.append((last_name, target_date, target_date, team_abbr))
+                            jobs.append(((last_name, first_name), target_date, target_date, team_abbr))
                             stats.append(stat)
                             already_done.add(key)
                         print()
