@@ -107,7 +107,7 @@ def run_for_date(
     if jobs:
         pipeline(jobs, {"ffmpeg_path": ffmpeg_path})
         with open("statlines.txt", "w", encoding="utf-8") as f:
-            f.writelines(stats)
+            f.write("\n".join(stats))
 
     state[target_date] = sorted(already_done)
     _save_state(state)
