@@ -60,6 +60,8 @@ def rule_based_candidates(team_name: str, players: list[dict], threshold: bool =
             minutes = p["MIN"]
             if minutes.startswith("0"):
                 minutes = minutes[1:]
+                if minutes[0] == ":":
+                    minutes = "0" + minutes
             minutes = int(minutes.split(":")[0]) * 60 + int(minutes.split(":")[1])
             if minutes >= 15 * 60:
                 candidates.append(

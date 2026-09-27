@@ -69,9 +69,9 @@ def run_for_date(
             (team_a, players_a), (team_b, players_b) = list(teams.items())
             game_label = f"{team_a} @ {team_b}"
 
-            candidates = rule_based_candidates(team_a, players_a, threshold) + \
-                rule_based_candidates(team_b, players_b, threshold)
-            picks = ollama_judge(game_label, candidates)
+            candidates_a = rule_based_candidates(team_a, players_a, threshold)
+            candidates_b = rule_based_candidates(team_b, players_b, threshold)
+            picks = ollama_judge(game_label, candidates_a) + ollama_judge(game_label, candidates_b)
 
             print(f"  {game_label}: {len(picks)} highlight-worthy performance(s)")
 
@@ -95,12 +95,12 @@ def run_for_date(
                     choice = input("Approved Yes (y) / No (n): ").lower()
 
                     if choice in ["y", "n"]:
+                        if choice == "y":
+                            jobs.append((last_name, target_date, target_date, team_abbr))
+                            stats.append(stat)
+                            already_done.add(key)
                         print()
                         break
-                
-                jobs.append((last_name, target_date, target_date, team_abbr))
-                stats.append(stat)
-                already_done.add(key)
     finally:
         driver.close()
 
