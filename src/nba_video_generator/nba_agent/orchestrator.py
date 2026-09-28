@@ -40,15 +40,6 @@ def _remove_accents(text: str) -> str:
 def _player_name_parts(player_name: str) -> tuple[str, str]:
     """
     Split a player's name into (first_name, last_name).
-
-    Handles suffixes such as:
-        LeBron James Jr.
-        Gary Payton II
-        Clyde Drexler III
-
-    Examples:
-        "Franz Wagner" -> ("Franz", "Wagner")
-        "Gary Payton II" -> ("Gary", "Payton II")
     """
     parts = player_name.split()
 
@@ -68,10 +59,6 @@ def _player_name_parts(player_name: str) -> tuple[str, str]:
 def _make_player_abbreviations(players) -> dict[tuple[str, str], str]:
     """
     Create display abbreviations for every player on a team.
-
-    Normally:
-        Franz Wagner -> Wagner
-        Paolo Banchero -> Banchero
 
     If multiple players share a last name, use the shortest first-name
     prefix that uniquely identifies each player.
@@ -134,6 +121,7 @@ def run_for_date(
     target_date: str | None = None,
     ffmpeg_path: str | None = None,
     threshold: bool = True,
+    approve: bool = False,
 ) -> list[tuple[str, str, str, str]]:
     """
     Scan every box score for `target_date` (YYYY-MM-DD, defaults to today),
@@ -275,30 +263,45 @@ def run_for_date(
                     f"{pick['REASON']}"
                 )
 
-                while True:
+                if approve:
+                    while True:
+                        print(
+                            f"    -> queuing video: {stat}"
+                        )
+
+                        choice = input(
+                            "Approved Yes (y) / No (n): "
+                        ).lower()
+
+                        if choice in {"y", "n"}:
+                            if choice == "y":
+                                jobs.append(
+                                    (
+                                        (player_abbreviation, player_name),
+                                        target_date,
+                                        team_abbr,
+                                    )
+                                )
+
+                                stats.append(stat)
+                                already_done.add(key)
+
+                            print()
+                            break
+                else:
                     print(
                         f"    -> queuing video: {stat}"
                     )
-
-                    choice = input(
-                        "Approved Yes (y) / No (n): "
-                    ).lower()
-
-                    if choice in {"y", "n"}:
-                        if choice == "y":
-                            jobs.append(
-                                (
-                                    (player_abbreviation, player_name),
-                                    target_date,
-                                    team_abbr,
-                                )
-                            )
-
-                            stats.append(stat)
-                            already_done.add(key)
-
-                        print()
-                        break
+                    jobs.append(
+                        (
+                            (player_abbreviation, player_name),
+                            target_date,
+                            team_abbr,
+                        )
+                    )
+                    stats.append(stat)
+                    already_done.add(key)
+                    
 
     finally:
         driver.close()
