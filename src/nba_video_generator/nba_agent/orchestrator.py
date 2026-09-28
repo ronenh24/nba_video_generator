@@ -1,8 +1,9 @@
 """Daily agent: find significant NBA performances and build highlight videos."""
 import json
 import os
-from datetime import date as date_cls
 import unicodedata
+from collections import defaultdict
+from datetime import date as date_cls
 
 from selenium import webdriver
 
@@ -27,15 +28,112 @@ def _save_state(state: dict) -> None:
         json.dump(state, f, indent=2)
 
 
-def _remove_accents(text):
+def _remove_accents(text: str) -> str:
+    """Remove accents/diacritics from a string."""
     return "".join(
-        c for c in unicodedata.normalize("NFD", text)
+        c
+        for c in unicodedata.normalize("NFD", text)
         if unicodedata.category(c) != "Mn"
     )
 
 
+def _player_name_parts(player_name: str) -> tuple[str, str]:
+    """
+    Split a player's name into (first_name, last_name).
+
+    Handles suffixes such as:
+        LeBron James Jr.
+        Gary Payton II
+        Clyde Drexler III
+
+    Examples:
+        "Franz Wagner" -> ("Franz", "Wagner")
+        "Gary Payton II" -> ("Gary", "Payton II")
+    """
+    parts = player_name.split()
+
+    if not parts:
+        return "", ""
+
+    last_name = _remove_accents(parts[-1])
+    first_name = _remove_accents(" ".join(parts[:-1]))
+
+    if last_name in {"Sr.", "Jr.", "II", "III"} and len(parts) >= 2:
+        last_name = _remove_accents(" ".join(parts[-2:]))
+        first_name = _remove_accents(" ".join(parts[:-2]))
+
+    return first_name, last_name
+
+
+def _make_player_abbreviations(players) -> dict[tuple[str, str], str]:
+    """
+    Create display abbreviations for every player on a team.
+
+    Normally:
+        Franz Wagner -> Wagner
+        Paolo Banchero -> Banchero
+
+    If multiple players share a last name, use the shortest first-name
+    prefix that uniquely identifies each player.
+
+    Example:
+        Jaylen Williams -> Jay. Williams
+        Jalen Williams  -> Jal. Williams
+
+    The abbreviation is therefore determined from the complete roster,
+    rather than from an individual player in isolation.
+    """
+    parsed = [
+        _player_name_parts(player["PLAYER"])
+        for player in players
+        if player.get("PLAYER")
+    ]
+
+    # Group first names by normalized last name.
+    by_last_name: dict[str, list[str]] = defaultdict(list)
+
+    for first_name, last_name in parsed:
+        by_last_name[last_name].append(first_name)
+
+    abbreviations: dict[tuple[str, str], str] = {}
+
+    for first_name, last_name in parsed:
+        players_with_same_last = by_last_name[last_name]
+
+        # No collision: last name alone is sufficient.
+        if len(players_with_same_last) == 1:
+            abbreviations[(first_name, last_name)] = last_name
+            continue
+
+        # Collision: find the shortest prefix of the first name
+        # that uniquely identifies this player.
+        for length in range(1, len(first_name) + 1):
+            prefix = first_name[:length]
+
+            matches = sum(
+                other[:length] == prefix
+                for other in players_with_same_last
+            )
+
+            if matches == 1:
+                abbreviations[(first_name, last_name)] = (
+                    f"{prefix}. {last_name}"
+                )
+                break
+        else:
+            # Extremely unlikely fallback if two players have
+            # identical first and last names.
+            abbreviations[(first_name, last_name)] = (
+                f"{first_name}. {last_name}"
+            )
+
+    return abbreviations
+
+
 def run_for_date(
-    target_date: str | None = None, ffmpeg_path: str | None = None, threshold: bool = True
+    target_date: str | None = None,
+    ffmpeg_path: str | None = None,
+    threshold: bool = True,
 ) -> list[tuple[str, str, str, str]]:
     """
     Scan every box score for `target_date` (YYYY-MM-DD, defaults to today),
@@ -46,6 +144,7 @@ def run_for_date(
     """
     target_date = target_date or date_cls.today().isoformat()
     ffmpeg_path = ffmpeg_path or FFMPEG_PATH
+
     state = _load_state()
     state.setdefault(target_date, [])
     already_done = set(state[target_date])
@@ -57,62 +156,169 @@ def run_for_date(
     stats = []
 
     try:
-        boxscore_urls = get_boxscore_urls_for_date(driver, target_date)
-        print(f"[{target_date}] found {len(boxscore_urls)} box score(s)")
+        boxscore_urls = get_boxscore_urls_for_date(
+            driver,
+            target_date,
+        )
+
+        print(
+            f"[{target_date}] "
+            f"found {len(boxscore_urls)} box score(s)"
+        )
 
         for url in boxscore_urls:
             teams = parse_boxscore(driver, url)
+
             if len(teams) != 2:
-                print(f"  ! skipping {url} (expected 2 teams, got {len(teams)})")
+                print(
+                    f"  ! skipping {url} "
+                    f"(expected 2 teams, got {len(teams)})"
+                )
                 continue
 
-            (team_a, players_a), (team_b, players_b) = list(teams.items())
+            (team_a, players_a), (team_b, players_b) = list(
+                teams.items()
+            )
+
             game_label = f"{team_a} @ {team_b}"
 
-            candidates_a = rule_based_candidates(team_a, players_a, threshold)
-            candidates_b = rule_based_candidates(team_b, players_b, threshold)
-            picks = ollama_judge(game_label, candidates_a) + ollama_judge(game_label, candidates_b)
+            # Build the abbreviation map from the COMPLETE roster
+            # of each team. This is necessary for cases such as:
+            #
+            #   Jaylen Williams -> Jay. Williams
+            #   Jalen Williams  -> Jal. Williams
+            #
+            # rather than both becoming "J. Williams".
+            abbreviations_a = _make_player_abbreviations(players_a)
+            abbreviations_b = _make_player_abbreviations(players_b)
 
-            print(f"  {game_label}: {len(picks)} highlight-worthy performance(s)")
+            candidates_a = rule_based_candidates(
+                team_a,
+                players_a,
+                threshold,
+            )
+
+            candidates_b = rule_based_candidates(
+                team_b,
+                players_b,
+                threshold,
+            )
+
+            picks = (
+                ollama_judge(game_label, candidates_a)
+                + ollama_judge(game_label, candidates_b)
+            )
+
+            print(
+                f"  {game_label}: "
+                f"{len(picks)} highlight-worthy performance(s)"
+            )
 
             for pick in picks:
-                last_name = _remove_accents(pick["PLAYER"].split()[-1])
-                first_name = _remove_accents(" ".join(pick["PLAYER"].split()[:-1]))
-                if last_name == "Sr." or last_name == "Jr." or last_name == "II" or last_name == "III":
-                    last_name = _remove_accents(" ".join(pick["PLAYER"].split()[-2:]))
-                    first_name = _remove_accents(" ".join(pick["PLAYER"].split()[:-2]))
+                player_name = pick["PLAYER"]
+
+                first_name, last_name = _player_name_parts(
+                    player_name
+                )
+
+                # Select the abbreviation map belonging to the
+                # player's team.
+                if pick["TEAM"] == team_a:
+                    abbreviations = abbreviations_a
+
+                elif pick["TEAM"] == team_b:
+                    abbreviations = abbreviations_b
+
+                else:
+                    print(
+                        f"    ! could not identify team for "
+                        f"{player_name}: {pick['TEAM']}"
+                    )
+                    continue
+
+                player_abbreviation = abbreviations.get(
+                    (first_name, last_name),
+                    last_name,
+                )
+
                 try:
                     team_abbr = abbr_for(pick["TEAM"])
                 except KeyError as e:
                     print(f"    ! {e}")
                     continue
 
-                key = f"{last_name}|{team_abbr}"
+                # Use the COMPLETE player name in the state key.
+                #
+                # Do NOT use only:
+                #     Williams|OKC
+                #
+                # because Jaylen Williams and Jalen Williams would
+                # collide.
+                normalized_player_name = _remove_accents(
+                    player_name
+                )
+
+                key = (
+                    f"{normalized_player_name}|"
+                    f"{team_abbr}"
+                )
+
                 if key in already_done:
-                    print(f"    - skipping {pick['PLAYER']} (already processed today)")
+                    print(
+                        f"    - skipping {player_name} "
+                        f"(already processed today)"
+                    )
                     continue
 
-                stat = f"{pick['PLAYER']} ({team_abbr}) — {pick['REASON']}"
+                stat = (
+                    f"{player_name} ({team_abbr}) — "
+                    f"{pick['REASON']}"
+                )
 
                 while True:
-                    print(f"    -> queuing video: {stat}")
-                    choice = input("Approved Yes (y) / No (n): ").lower()
+                    print(
+                        f"    -> queuing video: {stat}"
+                    )
 
-                    if choice in ["y", "n"]:
+                    choice = input(
+                        "Approved Yes (y) / No (n): "
+                    ).lower()
+
+                    if choice in {"y", "n"}:
                         if choice == "y":
-                            jobs.append(((last_name, first_name), target_date, target_date, team_abbr))
+                            jobs.append(
+                                (
+                                    (player_abbreviation, player_name),
+                                    target_date,
+                                    team_abbr,
+                                )
+                            )
+
                             stats.append(stat)
                             already_done.add(key)
+
                         print()
                         break
+
     finally:
         driver.close()
 
     if jobs:
-        pipeline(jobs, {"ffmpeg_path": ffmpeg_path})
-        with open("statlines.txt", "w", encoding="utf-8") as f:
+        pipeline(
+            jobs,
+            {
+                "ffmpeg_path": ffmpeg_path,
+            },
+        )
+
+        with open(
+            "statlines.txt",
+            "w",
+            encoding="utf-8",
+        ) as f:
             f.write("\n".join(stats))
 
     state[target_date] = sorted(already_done)
     _save_state(state)
+
     return jobs

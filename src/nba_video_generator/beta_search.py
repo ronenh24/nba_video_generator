@@ -17,7 +17,7 @@ base_url = "https://www.nba.com/games?date="
 
 def search(driver: webdriver, last_name: str, date_start: str, date_end: str, team: str,
            ffmpeg_path: str = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe",
-           preset: str = "ultrafast", first_name: str | None = None):
+           preset: str = "ultrafast", full_name: str | None = None):
     if date_end is None:
         date_end = date_start
 
@@ -39,8 +39,10 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
     
         if pbp_url is not None:
             title, result = get_plays(driver, pbp_url, last_name, data_is_home_team)
-            if first_name is not None:
-                title = first_name + " " + title
+            if full_name is not None:
+                title = full_name + title
+            else:
+                title = last_name + title
 
             if len(result) > 0:
                 try:
@@ -101,7 +103,7 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
             params["last_name"] = name
         else:
             params["last_name"] = name[0]
-            params["first_name"] = name[1]
+            params["full_name"] = name[1]
         params["date_start"] = date_start
         params["date_end"] = date_end
         params["team"] = team

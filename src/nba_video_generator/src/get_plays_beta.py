@@ -18,7 +18,7 @@ def get_plays(driver: webdriver, pbp_url: str, last_name: str, data_is_home_team
         game_title = away + " " + date
     else:
         game_title = home + " " + date
-    title = last_name + " vs " + game_title + " Full Play"
+    title = " vs " + game_title + " Full Play"
 
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
