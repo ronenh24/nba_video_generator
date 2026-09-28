@@ -63,23 +63,33 @@ def _retry_scrape(description: str, default_factory):
 
 @_retry_scrape("fetching schedule", default_factory=list)
 def get_boxscore_urls_for_date(driver, date: str) -> list[str]:
-    """Return box-score page URLs for every game on `date` (YYYY-MM-DD)."""
+    """Return box-score page URLs in NBA.com schedule order."""
     driver.get(BASE_GAMES_URL.format(date=date))
+
     WebDriverWait(driver, 15).until(
         EC.presence_of_element_located((By.CSS_SELECTOR, "a[href*='/game/']"))
     )
-    time.sleep(1.5)  # let late-loading game cards settle
+    time.sleep(1.5)
 
-    hrefs = set()
+    urls = []
+    seen = set()
+
     for a in driver.find_elements(By.CSS_SELECTOR, "a[href*='/game/']"):
         href = a.get_attribute("href")
         if not href:
             continue
-        m = re.match(r"(https://www\.nba\.com/game/[a-z\-]+-\d+)", href)
-        if m:
-            hrefs.add(m.group(1))
 
-    return [f"{h}/box-score" for h in sorted(hrefs)]
+        m = re.match(r"(https://www\.nba\.com/game/[a-z\-]+-\d+)", href)
+        if not m:
+            continue
+
+        url = f"{m.group(1)}/box-score"
+
+        if url not in seen:
+            seen.add(url)
+            urls.append(url)
+
+    return urls
 
 
 @_retry_scrape("parsing box score", default_factory=dict)

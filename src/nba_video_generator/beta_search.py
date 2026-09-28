@@ -6,6 +6,7 @@ import subprocess
 from datetime import datetime, timedelta
 import shutil
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from nba_video_generator.src.get_pbp_beta import get_pbp
 from nba_video_generator.src.get_plays_beta import get_plays
 from nba_video_generator.src.download_plays_beta import download_plays
@@ -96,7 +97,10 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
             name_date_team[i] = (row[0], row[1], row[1], row[2])
 
     for name, date_start, date_end, team in name_date_team:
-        driver = webdriver.Chrome()
+        service = Service(log_output=os.devnull)
+        options = webdriver.ChromeOptions()
+        options.add_argument("--log-level=3")
+        driver = webdriver.Chrome(service=service, options=options)
         driver.maximize_window()
         # driver.implicitly_wait(3)
         if isinstance(name, str):

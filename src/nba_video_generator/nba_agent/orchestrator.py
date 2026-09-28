@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import date as date_cls
 
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 
 from .config import STATE_FILE, FFMPEG_PATH
 from .team_map import abbr_for
@@ -137,7 +138,11 @@ def run_for_date(
     state.setdefault(target_date, [])
     already_done = set(state[target_date])
 
-    driver = webdriver.Chrome()
+    service = Service(log_output=os.devnull)
+    options = webdriver.ChromeOptions()
+    options.add_argument("--log-level=3")
+
+    driver = webdriver.Chrome(service=service, options=options)
     driver.maximize_window()
 
     jobs: list[tuple[str, str, str, str]] = []
