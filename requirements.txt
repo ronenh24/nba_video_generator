@@ -7,4 +7,5 @@ pyperclip
 beautifulsoup4
 requests
 schedule
-
+requests
+schedule

@@ -198,8 +198,7 @@ def run_for_date(
             )
 
             picks = (
-                ollama_judge(game_label, candidates_a)
-                + ollama_judge(game_label, candidates_b)
+                ollama_judge(game_label, candidates_a + candidates_b)
             )
 
             print(
