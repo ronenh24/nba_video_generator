@@ -21,6 +21,8 @@ from .config import BASE_GAMES_URL, SCRAPE_MAX_ATTEMPTS, SCRAPE_RETRY_BACKOFF_SE
 
 GAME_LINK_SELECTOR = "a[href*='/game/']"
 GAME_STATUS_SELECTOR = "[data-testid='game-status']"
+PLAYER_LINK_SELECTOR = "a[href*='/player/']"
+HEADSHOT_URL = "https://cdn.nba.com/headshots/nba/latest/1040x760/{player_id}.png"
 
 
 def _retry_scrape(description: str, default_factory):
@@ -74,6 +76,35 @@ def _is_final(status_el) -> bool:
     return text.startswith("final")
 
 
+def _player_id_and_image(tr) -> tuple[str, str]:
+    """Return (player_id, image_url) for a box-score row.
+
+    The ID comes from the player's link (/player/201142/kevin-durant); if
+    there's no link, it falls back to the ID embedded in the row's <img>
+    headshot URL (.../260x190/201142.png). image_url is built from the ID
+    when we have one, otherwise whatever <img> src the row carried."""
+    player_id = ""
+
+    link = tr.select_one(PLAYER_LINK_SELECTOR)
+    if link:
+        m = re.search(r"/player/(\d+)", link.get("href", ""))
+        if m:
+            player_id = m.group(1)
+
+    img = tr.select_one("img[class*='PlayerImage_image']") or tr.select_one("img")
+    # nba.com lazy-loads images, so src can be a placeholder; try data-src too.
+    img_src = ((img.get("src") or img.get("data-src") or "") if img else "")
+
+    if not player_id and img_src:
+        m = re.search(r"/(\d{3,})\.png", img_src)
+        if m:
+            player_id = m.group(1)
+
+    if player_id:
+        return player_id, HEADSHOT_URL.format(player_id=player_id)
+    return "", img_src
+
+
 @_retry_scrape("fetching schedule", default_factory=list)
 def get_boxscore_urls_for_date(driver, date: str) -> list[str]:
     """Return box-score page URLs (in schedule order) for FINAL games only."""
@@ -120,6 +151,7 @@ def get_boxscore_urls_for_date(driver, date: str) -> list[str]:
 @_retry_scrape("parsing box score", default_factory=dict)
 def parse_boxscore(driver, url: str) -> dict[str, list[dict]]:
     """Load a box-score page and return {team_full_name: [player_stat_dict, ...]}.
+    Each dict holds the STAT_COLUMNS values plus PLAYER, PLAYER_ID and IMAGE_URL.
     Returns {} (triggering a retry) if fewer than 2 teams were parsed, since
     that almost always means the page hadn't finished rendering."""
     driver.get(url)
@@ -155,6 +187,11 @@ def parse_boxscore(driver, url: str) -> dict[str, list[dict]]:
 
             stats = dict(zip(STAT_COLUMNS, values))
             stats["PLAYER"] = name_span.get_text(strip=True)
+
+            player_id, image_url = _player_id_and_image(tr)
+            stats["PLAYER_ID"] = player_id
+            stats["IMAGE_URL"] = image_url
+
             rows.append(stats)
 
         teams[team_name] = rows

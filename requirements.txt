@@ -9,3 +9,4 @@ requests
 schedule
 requests
 schedule
+pillow

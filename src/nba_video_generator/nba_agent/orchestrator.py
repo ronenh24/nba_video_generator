@@ -12,9 +12,13 @@ from .config import STATE_FILE, FFMPEG_PATH
 from .team_map import abbr_for
 from .scraper import get_boxscore_urls_for_date, parse_boxscore
 from .significance import rule_based_candidates, ollama_judge
+from .thumbnail import attach_headshot, make_thumbnail, thumbnail_path
 
 # Your existing video-generation pipeline (unchanged).
 from nba_video_generator.beta_search import pipeline
+
+# Where generated thumbnails are written.
+THUMB_DIR = "thumbnails"
 
 
 def _load_state() -> dict:
@@ -127,7 +131,8 @@ def run_for_date(
     """
     Scan every box score for `target_date` (YYYY-MM-DD, defaults to today),
     find significant performances, and kick off video generation for each
-    new one via your existing pipeline(). Returns the jobs that were run.
+    new one via your existing pipeline(). Also writes a thumbnail per
+    queued performance to THUMB_DIR. Returns the jobs that were run.
 
     `ffmpeg_path` overrides config.FFMPEG_PATH for this run if given.
     """
@@ -147,6 +152,7 @@ def run_for_date(
 
     jobs: list[tuple[str, str, str, str]] = []
     stats = []
+    thumb_jobs: list[tuple[str, str, dict]] = []
 
     try:
         boxscore_urls = get_boxscore_urls_for_date(
@@ -213,13 +219,15 @@ def run_for_date(
                     player_name
                 )
 
-                # Select the abbreviation map belonging to the
-                # player's team.
+                # Select the abbreviation map (and roster) belonging
+                # to the player's team.
                 if pick["TEAM"] == team_a:
                     abbreviations = abbreviations_a
+                    roster = players_a
 
                 elif pick["TEAM"] == team_b:
                     abbreviations = abbreviations_b
+                    roster = players_b
 
                 else:
                     print(
@@ -231,6 +239,12 @@ def run_for_date(
                 player_abbreviation = abbreviations.get(
                     (first_name, last_name),
                     last_name,
+                )
+
+                # Full stat row (PTS, REB, IMAGE_URL, ...) for the thumbnail.
+                stat_row = next(
+                    (p for p in roster if p.get("PLAYER") == player_name),
+                    {},
                 )
 
                 try:
@@ -262,6 +276,10 @@ def run_for_date(
                     )
                     continue
 
+                # Download the headshot NOW, while the browser is still open
+                # (plain HTTP requests to the NBA CDN tend to get blocked).
+                attach_headshot(driver, stat_row)
+
                 stat = (
                     f"{player_name} ({team_abbr}) — "
                     f"{pick['REASON']}"
@@ -288,6 +306,9 @@ def run_for_date(
                                 )
 
                                 stats.append(stat)
+                                thumb_jobs.append(
+                                    (player_name, team_abbr, stat_row)
+                                )
                                 already_done.add(key)
 
                             print()
@@ -304,8 +325,10 @@ def run_for_date(
                         )
                     )
                     stats.append(stat)
+                    thumb_jobs.append(
+                        (player_name, team_abbr, stat_row)
+                    )
                     already_done.add(key)
-                    
 
     finally:
         driver.close()
@@ -324,6 +347,16 @@ def run_for_date(
             encoding="utf-8",
         ) as f:
             f.write("\n".join(stats))
+
+        # One thumbnail per queued performance. A failure here should
+        # never break the run, so each is guarded individually.
+        for name, abbr, row in thumb_jobs:
+            path = thumbnail_path(THUMB_DIR, target_date, name, abbr)
+            try:
+                make_thumbnail(name, abbr, row, path)
+                print(f"  thumbnail -> {path}")
+            except Exception as e:
+                print(f"  ! thumbnail failed for {name}: {e}")
 
     state[target_date] = sorted(already_done)
     _save_state(state)

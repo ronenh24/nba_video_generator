@@ -21,6 +21,7 @@ dependencies = [
     "beautifulsoup4",
     "requests",
     "schedule",
+    "pillow",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
