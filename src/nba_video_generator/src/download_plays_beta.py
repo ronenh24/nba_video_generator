@@ -22,16 +22,15 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             driver.refresh()
             body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
-        if i == 0:
-            try:
-                driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]').click()
-            except:
-                pass
+        # if i == 0:
+        #     try:
+        #         driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]').click()
+        #     except:
+        #         pass
 
         # video_path = os.path.join(os.path.abspath(base_name), str(i) + ".mp4") if i == 0 else str(i)
 
-        wait = 10 if i == 0 else 3
-        video = WebDriverWait(driver, wait).until(
+        video = WebDriverWait(driver, 3).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "video.vjs-tech"))
         )
         driver.execute_script("arguments[0].pause();", video)

@@ -13,6 +13,7 @@ from .team_map import abbr_for
 from .scraper import get_boxscore_urls_for_date, parse_boxscore
 from .significance import rule_based_candidates, ollama_judge
 from .thumbnail import attach_headshot, make_thumbnail
+from .team_logo import attach_logo
 
 # Your existing video-generation pipeline (unchanged).
 from nba_video_generator.beta_search import pipeline
@@ -279,6 +280,7 @@ def run_for_date(
                 # Download the headshot NOW, while the browser is still open
                 # (plain HTTP requests to the NBA CDN tend to get blocked).
                 attach_headshot(driver, stat_row)
+                attach_logo(driver, stat_row, team_abbr)
 
                 stat = (
                     f"{player_name} ({team_abbr}) — "

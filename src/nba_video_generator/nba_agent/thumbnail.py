@@ -12,6 +12,8 @@ import re
 import unicodedata
 import urllib.request
 
+from .team_logo import logo_layer
+
 from PIL import Image, ImageDraw, ImageFont
 
 W, H = 1280, 720
@@ -225,8 +227,9 @@ def _fit_font(draw, text: str, max_width: int, start: int, minimum: int = 60):
     return _font(minimum)
 
 
-def _text(draw, xy, text, font, fill="white", stroke=0):
-    draw.text(xy, text, font=font, fill=fill, stroke_width=stroke, stroke_fill=(0, 0, 0))
+def _text(draw, xy, text, font, fill="white", stroke=0, anchor="la"):
+    draw.text(xy, text, font=font, fill=fill, stroke_width=stroke,
+              stroke_fill=(0, 0, 0), anchor=anchor)
 
 
 def _split_name(name: str) -> tuple[str, str]:
@@ -244,6 +247,9 @@ def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -
 
     color = _hex(TEAM_COLORS.get(team_abbr, DEFAULT_COLOR))
     img = _background(color)
+    logo = logo_layer(row, W, H)
+    if logo:
+        img = Image.alpha_composite(img, logo)
 
     # Headshot, bottom-aligned, centered around x=900.
     shot = _fetch_headshot(row)
@@ -279,8 +285,8 @@ def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -
         y = y0 + (i // 2) * (tile_h + gap)
         fill = color + (235,) if i == 0 else (0, 0, 0, 170)
         draw.rounded_rectangle((x, y, x + tile_w, y + tile_h), 20, fill=fill)
-        _text(draw, (x + 24, y + 4), str(value), _font(92), stroke=2)
-        _text(draw, (x + 26, y + 96), label, _font(28), fill=(235, 235, 235))
+        _text(draw, (x + 24, y + 92), str(value), _font(88), stroke=2, anchor="ls")
+        _text(draw, (x + 26, y + 122), label, _font(28), fill=(235, 235, 235), anchor="ls")
 
     footer = _footer(row)
     if footer:
