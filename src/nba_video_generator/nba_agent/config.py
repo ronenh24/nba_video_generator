@@ -29,7 +29,7 @@ THRESHOLDS = {
     "AST": 7,
     "STL": 3,
     "BLK": 3,
-    "3PM": 5,
+    "3PM": 7,
 }
 TRIPLE_DOUBLE_CATS = ["PTS", "REB", "AST", "STL", "BLK"]
 TRIPLE_DOUBLE_MIN = 10  # double-digit in 3+ of the categories above
