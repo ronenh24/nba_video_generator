@@ -11,12 +11,16 @@ import re
 import time
 
 from bs4 import BeautifulSoup
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from .config import BASE_GAMES_URL, SCRAPE_MAX_ATTEMPTS, SCRAPE_RETRY_BACKOFF_SECONDS, STAT_COLUMNS
+
+
+GAME_LINK_SELECTOR = "a[href*='/game/']"
+GAME_STATUS_SELECTOR = "[data-testid='game-status']"
 
 
 def _retry_scrape(description: str, default_factory):
@@ -61,33 +65,54 @@ def _retry_scrape(description: str, default_factory):
     return decorator
 
 
+def _is_final(status_el) -> bool:
+    """True for 'Final' and variants like 'Final/OT', never for live games."""
+    if status_el.get_attribute("data-is-live") == "true":
+        return False
+    # textContent works even if the element is scrolled out of view
+    text = (status_el.get_attribute("textContent") or "").strip().lower()
+    return text.startswith("final")
+
+
 @_retry_scrape("fetching schedule", default_factory=list)
 def get_boxscore_urls_for_date(driver, date: str) -> list[str]:
-    """Return box-score page URLs in NBA.com schedule order."""
+    """Return box-score page URLs (in schedule order) for FINAL games only."""
     driver.get(BASE_GAMES_URL.format(date=date))
 
     WebDriverWait(driver, 15).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "a[href*='/game/']"))
+        EC.presence_of_element_located((By.CSS_SELECTOR, GAME_STATUS_SELECTOR))
     )
     time.sleep(1.5)
 
     urls = []
     seen = set()
 
-    for a in driver.find_elements(By.CSS_SELECTOR, "a[href*='/game/']"):
-        href = a.get_attribute("href")
-        if not href:
+    for status_el in driver.find_elements(By.CSS_SELECTOR, GAME_STATUS_SELECTOR):
+        if not _is_final(status_el):
             continue
 
-        m = re.match(r"(https://www\.nba\.com/game/[a-z\-]+-\d+)", href)
-        if not m:
+        # Nearest ancestor of the status text that also contains a game link,
+        # i.e. this game's card.
+        try:
+            card = status_el.find_element(
+                By.XPATH, "./ancestor::*[.//a[contains(@href, '/game/')]][1]"
+            )
+        except NoSuchElementException:
             continue
 
-        url = f"{m.group(1)}/box-score"
+        for a in card.find_elements(By.CSS_SELECTOR, GAME_LINK_SELECTOR):
+            href = a.get_attribute("href")
+            if not href:
+                continue
 
-        if url not in seen:
-            seen.add(url)
-            urls.append(url)
+            m = re.match(r"(https://www\.nba\.com/game/[a-z\-]+-\d+)", href)
+            if not m:
+                continue
+
+            url = f"{m.group(1)}/box-score"
+            if url not in seen:
+                seen.add(url)
+                urls.append(url)
 
     return urls
 
