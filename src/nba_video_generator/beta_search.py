@@ -88,6 +88,10 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
         for title in titles:
             os.remove(title)
 
+        return last_name + " " + date_start + " " + date_end
+    else:
+        return title
+
 
 def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list[tuple[str | tuple[str, str], str, str, str]],
              params: dict = {}):
@@ -95,6 +99,8 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
     for i, row in enumerate(name_date_team):
         if len(row) == 3:
             name_date_team[i] = (row[0], row[1], row[1], row[2])
+
+    titles = []
 
     for name, date_start, date_end, team in name_date_team:
         service = Service(log_output=os.devnull)
@@ -112,6 +118,7 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
         params["date_end"] = date_end
         params["team"] = team
         params["driver"] = driver
-        search(**params)
+        titles.append(search(**params))
         driver.close()
 
+    return titles

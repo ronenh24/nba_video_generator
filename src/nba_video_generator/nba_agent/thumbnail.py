@@ -9,6 +9,7 @@ import functools
 import io
 import os
 import re
+import unicodedata
 import urllib.request
 
 from PIL import Image, ImageDraw, ImageFont
@@ -36,6 +37,15 @@ TEAM_COLORS = {
     "uta": "#4E2A84", "was": "#E31837",
 }
 DEFAULT_COLOR = "#1D428A"
+
+
+def _remove_accents(text: str) -> str:
+    """Remove accents/diacritics from a string."""
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFD", text)
+        if unicodedata.category(c) != "Mn"
+    )
 
 
 @functools.lru_cache(maxsize=None)
@@ -230,6 +240,8 @@ def _split_name(name: str) -> tuple[str, str]:
 # Public API
 # --------------------------------------------------------------------------
 def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -> str:
+    player_name = _remove_accents(player_name)
+
     color = _hex(TEAM_COLORS.get(team_abbr, DEFAULT_COLOR))
     img = _background(color)
 
@@ -280,6 +292,6 @@ def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -
     return out_path
 
 
-def thumbnail_path(out_dir: str, date: str, player_name: str, team_abbr: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", player_name.lower()).strip("-")
-    return os.path.join(out_dir, f"{date}_{slug}_{team_abbr}.jpg")
+# def thumbnail_path(out_dir: str, date: str, player_name: str, team_abbr: str) -> str:
+#     slug = re.sub(r"[^a-z0-9]+", "-", player_name.lower()).strip("-")
+#     return os.path.join(out_dir, f"{date}_{slug}_{team_abbr}.jpg")

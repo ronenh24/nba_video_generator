@@ -12,7 +12,7 @@ from .config import STATE_FILE, FFMPEG_PATH
 from .team_map import abbr_for
 from .scraper import get_boxscore_urls_for_date, parse_boxscore
 from .significance import rule_based_candidates, ollama_judge
-from .thumbnail import attach_headshot, make_thumbnail, thumbnail_path
+from .thumbnail import attach_headshot, make_thumbnail
 
 # Your existing video-generation pipeline (unchanged).
 from nba_video_generator.beta_search import pipeline
@@ -334,7 +334,7 @@ def run_for_date(
         driver.close()
 
     if jobs:
-        pipeline(
+        titles = pipeline(
             jobs,
             {
                 "ffmpeg_path": ffmpeg_path,
@@ -350,8 +350,9 @@ def run_for_date(
 
         # One thumbnail per queued performance. A failure here should
         # never break the run, so each is guarded individually.
-        for name, abbr, row in thumb_jobs:
-            path = thumbnail_path(THUMB_DIR, target_date, name, abbr)
+        for title, (name, abbr, row) in zip(titles, thumb_jobs):
+            # path = thumbnail_path(THUMB_DIR, target_date, name, abbr)
+            path = os.path.join(THUMB_DIR, title + ".jpg")
             try:
                 make_thumbnail(name, abbr, row, path)
                 print(f"  thumbnail -> {path}")
