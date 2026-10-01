@@ -106,7 +106,7 @@ nba_agent(date, ffmpeg_path)
 1. Specify the date (yyyy-mm-dd).
 2. LLM chooses players from pool of candidates that meet thresholds in [src\nba_video_generator\nba_agent\config.py](src\nba_video_generator\nba_agent\config.py).
 3. The videos are made with the `pipeline` method. The thumbnails with relevant statistics are made afterward.
-4. (Optional) Upload to YouTube with Python. Example program in [src\nba_video_generator\example_youtube_upload_scripts](src\nba_video_generator\example_youtube_upload_scripts). Link to data ap - [https://developers.google.com/youtube/v3/guides/uploading_a_video](https://developers.google.com/youtube/v3/guides/uploading_a_video).
+4. (Optional) Upload to YouTube with Python. Example program in [src\nba_video_generator\example_youtube_upload_scripts](src\nba_video_generator\example_youtube_upload_scripts). Link to data api - [https://developers.google.com/youtube/v3/guides/uploading_a_video](https://developers.google.com/youtube/v3/guides/uploading_a_video).
 
 A video of the process is provided below.
 
