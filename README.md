@@ -79,7 +79,7 @@ pipeline(
 )
 ```
 
-## Process
+### Process
 1. Specify the player last name (as per NBA.com website), team abbreviation, and date(s) (yyyy-mm-dd).
 2. Programs crawls through play by play by quarter, keeping a list of links and times.
 3. Events within 5 seconds of each other are merged to a single event.
@@ -101,3 +101,13 @@ ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_vi
 
 nba_agent(date, ffmpeg_path)
 ```
+
+### Process
+1. Specify the date (yyyy-mm-dd).
+2. LLM chooses players from pool of candidates that meet thresholds in [src\nba_video_generator\nba_agent\config.py](src\nba_video_generator\nba_agent\config.py).
+3. The videos are made with the `pipeline` method. The thumbnails with relevant statistics are made afterward.
+4. (Optional) Upload to YouTube with Python. Example program in [src\nba_video_generator\example_youtube_upload_scripts](src\nba_video_generator\example_youtube_upload_scripts). Link to data ap - [https://developers.google.com/youtube/v3/guides/uploading_a_video](https://developers.google.com/youtube/v3/guides/uploading_a_video).
+
+A video of the process is provided below.
+
+[https://www.youtube.com/watch?v=IC8SrrvS4xE&feature=youtu.be](https://www.youtube.com/watch?v=IC8SrrvS4xE&feature=youtu.be)
