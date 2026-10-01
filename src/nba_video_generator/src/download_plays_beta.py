@@ -30,7 +30,7 @@ def download_plays(driver: webdriver, base_name: str, result: list):
 
         # video_path = os.path.join(os.path.abspath(base_name), str(i) + ".mp4") if i == 0 else str(i)
 
-        video = WebDriverWait(driver, 3).until(
+        video = WebDriverWait(driver, 2).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "video.vjs-tech"))
         )
         driver.execute_script("arguments[0].pause();", video)
@@ -42,7 +42,7 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             pass
 
         if not src.endswith("missing.mp4"):
-            ActionChains(driver).pause(3).move_to_element(video).context_click(video).perform()
+            ActionChains(driver).pause(2).move_to_element(video).context_click(video).perform()
             time.sleep(1)
             pyautogui.typewrite(['down', 'down', 'down', 'down', 'down', 'enter']) 
             time.sleep(3)

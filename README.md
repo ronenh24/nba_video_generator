@@ -61,7 +61,7 @@ pipeline(
         ("DiVincenzo", "2026-04-20", "min"),
     ], 
     {
-        "ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
+        "ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe"
     }
 )
 ```
@@ -75,7 +75,7 @@ pipeline(
     [
         ("Booker", "2026-04-19", "2026-04-27", "phx"),
     ],
-    {"ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"}
+    {"ffmpeg_path": r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe"}
 )
 ```
 
@@ -97,7 +97,7 @@ from nba_video_generator.run_agent import nba_agent
 
 date = "2025-12-25"
 
-ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe"
+ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe"
 
 nba_agent(date, ffmpeg_path)
 ```

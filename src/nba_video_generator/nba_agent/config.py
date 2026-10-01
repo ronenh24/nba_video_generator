@@ -16,7 +16,7 @@ STATE_FILE = os.environ.get("NBA_AGENT_STATE", "processed_performances.json")
 FFMPEG_PATH = os.environ.get(
     "FFMPEG_PATH",
     r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator"
-    r"\ffmpeg-2025-10-21-git-535d4047d3-essentials_build\bin\ffmpeg.exe",
+    r"\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe",
 )
 
 # --- Rule-based "worth a look" thresholds ---
