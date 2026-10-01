@@ -22,15 +22,15 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             driver.refresh()
             body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
-        # if i == 0:
-        #     try:
-        #         driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]').click()
-        #     except:
-        #         pass
+        if i == 0:
+            try:
+                driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]').click()
+            except:
+                pass
 
         # video_path = os.path.join(os.path.abspath(base_name), str(i) + ".mp4") if i == 0 else str(i)
 
-        video = WebDriverWait(driver, 2).until(
+        video = WebDriverWait(driver, 3).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "video.vjs-tech"))
         )
         driver.execute_script("arguments[0].pause();", video)
@@ -50,10 +50,10 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             clip_name = pyperclip.paste()
             if i == 0:
                 time.sleep(2)
-                pyautogui.write(os.path.join(os.path.abspath(base_name), clip_name + ".mp4"), interval=0.20)
+                pyautogui.write(os.path.join(os.path.abspath(base_name), clip_name + ".mp4"), interval=0.10)
             pyautogui.press('enter')
             player_urls.append((os.path.join(os.path.abspath(base_name), clip_name + ".mp4"), desc_raw))
             i += 1
-            time.sleep(3)
+            time.sleep(2)
 
     return player_urls
