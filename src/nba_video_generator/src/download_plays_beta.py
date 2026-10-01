@@ -30,7 +30,7 @@ def download_plays(driver: webdriver, base_name: str, result: list):
 
         # video_path = os.path.join(os.path.abspath(base_name), str(i) + ".mp4") if i == 0 else str(i)
 
-        video = WebDriverWait(driver, 2).until(
+        video = WebDriverWait(driver, 3).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "video.vjs-tech"))
         )
         driver.execute_script("arguments[0].pause();", video)
@@ -54,6 +54,6 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             pyautogui.press('enter')
             player_urls.append((os.path.join(os.path.abspath(base_name), clip_name + ".mp4"), desc_raw))
             i += 1
-            time.sleep(2)
+            time.sleep(1)
 
     return player_urls
