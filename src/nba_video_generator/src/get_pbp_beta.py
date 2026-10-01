@@ -19,7 +19,7 @@ def get_pbp(driver: webdriver, base_url: str, date: str, team: str):
     box_score_url = ""
 
     try:
-        game_urls = WebDriverWait(driver, 3).until(
+        game_urls = WebDriverWait(driver, 30).until(
             EC.presence_of_all_elements_located((By.XPATH, boxscore_tag))
         )
     except Exception:
