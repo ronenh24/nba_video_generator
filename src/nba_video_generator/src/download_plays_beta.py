@@ -55,5 +55,6 @@ def download_plays(driver: webdriver, base_name: str, result: list):
             pyautogui.press('enter')
             player_urls.append((os.path.join(os.path.abspath(base_name), clip_name + ".mp4"), desc_raw))
             i += 1
+            time.sleep(2)
 
     return player_urls

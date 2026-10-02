@@ -45,6 +45,9 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
             else:
                 title = last_name + title
 
+            if os.path.exists(title + ".mp4"):
+                os.remove(title + ".mp4")
+
             if len(result) > 0:
                 try:
                     shutil.rmtree(base_name)
