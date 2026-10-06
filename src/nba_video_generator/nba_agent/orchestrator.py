@@ -154,6 +154,7 @@ def run_for_date(
     jobs: list[tuple[str, str, str, str]] = []
     stats = []
     thumb_jobs: list[tuple[str, str, dict]] = []
+    already_done_list = []
 
     try:
         boxscore_urls = get_boxscore_urls_for_date(
@@ -312,6 +313,7 @@ def run_for_date(
                                     (player_name, team_abbr, stat_row)
                                 )
                                 already_done.add(key)
+                                already_done_list.append(key)
 
                             print()
                             break
@@ -331,6 +333,7 @@ def run_for_date(
                         (player_name, team_abbr, stat_row)
                     )
                     already_done.add(key)
+                    already_done_list.append(key)
 
     finally:
         driver.close()
@@ -352,7 +355,7 @@ def run_for_date(
 
         # One thumbnail per queued performance. A failure here should
         # never break the run, so each is guarded individually.
-        for title, (name, abbr, row) in zip(titles, thumb_jobs):
+        for title, (name, abbr, row), key in zip(titles, thumb_jobs, already_done_list):
             # path = thumbnail_path(THUMB_DIR, target_date, name, abbr)
             path = os.path.join(THUMB_DIR, title + ".jpg")
             try:
@@ -360,7 +363,9 @@ def run_for_date(
                 print(f"  thumbnail -> {path}")
             except Exception as e:
                 print(f"  ! thumbnail failed for {name}: {e}")
-
+            if not os.path.exists(title + ".mp4"):
+                already_done.remove(key)
+                
     state[target_date] = sorted(already_done)
     _save_state(state)
 
