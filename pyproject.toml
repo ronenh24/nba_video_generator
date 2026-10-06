@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nba-video-generator"
-version = "4.0.33"
+version = "4.0.34"
 authors = [
   { name="Ronen Huang", email="ronenhuang24@gmail.com" },
 ]
