@@ -353,17 +353,32 @@ def run_for_date(
         ) as f:
             f.write("\n".join(stats))
 
-        # One thumbnail per queued performance. A failure here should
-        # never break the run, so each is guarded individually.
-        for title, (name, abbr, row), key in zip(titles, thumb_jobs, already_done_list):
-            # path = thumbnail_path(THUMB_DIR, target_date, name, abbr)
-            path = os.path.join(THUMB_DIR, title + ".jpg")
-            try:
-                make_thumbnail(name, abbr, row, path)
-                print(f"  thumbnail -> {path}")
-            except Exception as e:
-                print(f"  ! thumbnail failed for {name}: {e}")
-            if not os.path.exists(title + ".mp4"):
+        # Because `titles` only contains successfully made videos, we must 
+        # match them back to their original jobs to generate thumbnails and 
+        # correctly identify which jobs failed so we can remove them from state.
+        successful_keys = set()
+        
+        for title in titles:
+            for job, thumb_job, key in zip(jobs, thumb_jobs, already_done_list):
+                (player_abbreviation, player_name), _, _ = job
+                
+                # Match the generated video title to the queued job
+                if player_name in title or player_abbreviation in title:
+                    name, abbr, row = thumb_job
+                    path = os.path.join(THUMB_DIR, title + ".jpg")
+                    try:
+                        make_thumbnail(name, abbr, row, path)
+                        print(f"  thumbnail -> {path}")
+                    except Exception as e:
+                        print(f"  ! thumbnail failed for {name}: {e}")
+                        
+                    successful_keys.add(key)
+                    break
+
+        # Any job that didn't successfully produce a video must be 
+        # removed from `already_done` so it can be retried next run.
+        for key in already_done_list:
+            if key not in successful_keys:
                 already_done.remove(key)
                 
     state[target_date] = sorted(already_done)
