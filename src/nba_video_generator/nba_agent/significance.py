@@ -120,16 +120,21 @@ def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
         "one from this game's candidates is worth a highlight video."
     )
 
-    resp = requests.post(
-        f"{OLLAMA_HOST}/api/chat",
-        json={
-            "model": OLLAMA_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "format": "json",
-            "stream": True,
-        },
-        timeout=1000,
-    )
+    while True:
+        try:
+            resp = requests.post(
+                f"{OLLAMA_HOST}/api/chat",
+                json={
+                    "model": OLLAMA_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "format": "json",
+                    "stream": True,
+                },
+                timeout=1000,
+            )
+            break
+        except:
+            pass
 
     resp.raise_for_status()
 

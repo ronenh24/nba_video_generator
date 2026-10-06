@@ -88,7 +88,13 @@ def _ball_exception(last_name, desc):
 
     desc = desc.lower()
 
-    return not ("lost ball" in desc and not desc.startswith("ball "))
+    if "lost ball" in desc and not desc.startswith("ball "):
+        return False
+
+    if "jump ball" in desc and len(desc.split("ball")) < 3:
+        return False
+
+    return True
 
 
 def _find_foul_url(rows, i, play_time):
