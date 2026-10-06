@@ -43,6 +43,8 @@ def get_plays(driver: webdriver, pbp_url: str, last_name: str, data_is_home_team
             if row.get_attribute("data-is-home-team") == data_is_home_team and last_name.lower() in row.text.lower():
                 try:
                     desc_raw = row.find_element(By.XPATH, desc_tag).text
+                    if not _ball_exception(last_name, desc_raw):
+                        continue
                     desc = desc_raw.lower()
                     play_time = row.find_element(By.XPATH, time_tag).text
                     if play_time.startswith("0"):
@@ -78,6 +80,15 @@ def get_plays(driver: webdriver, pbp_url: str, last_name: str, data_is_home_team
     result = combine_events(result)
 
     return title, result
+
+
+def _ball_exception(last_name, desc):
+    if last_name.lower() != "ball":
+        return True
+
+    desc = desc.lower()
+
+    return not ("lost ball" in desc and not desc.startswith("ball "))
 
 
 def _find_foul_url(rows, i, play_time):
