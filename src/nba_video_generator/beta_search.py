@@ -121,7 +121,13 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
         params["date_end"] = date_end
         params["team"] = team
         params["driver"] = driver
-        titles.append(search(**params))
+        while True:
+            try:
+                search(**params)
+                break
+            except:
+                pass
+            pass
         driver.close()
 
     return titles
