@@ -20,7 +20,7 @@ from .config import BASE_GAMES_URL, SCRAPE_MAX_ATTEMPTS, SCRAPE_RETRY_BACKOFF_SE
 
 
 GAME_LINK_SELECTOR = "a[href*='/game/']"
-GAME_STATUS_SELECTOR = "[data-testid='game-status']"
+GAME_STATUS_SELECTOR = '[data-game-status]'
 PLAYER_LINK_SELECTOR = "a[href*='/player/']"
 HEADSHOT_URL = "https://cdn.nba.com/headshots/nba/latest/1040x760/{player_id}.png"
 
@@ -69,11 +69,7 @@ def _retry_scrape(description: str, default_factory):
 
 def _is_final(status_el) -> bool:
     """True for 'Final' and variants like 'Final/OT', never for live games."""
-    if status_el.get_attribute("data-is-live") == "true":
-        return False
-    # textContent works even if the element is scrolled out of view
-    text = (status_el.get_attribute("textContent") or "").strip().lower()
-    return text.startswith("final")
+    return status_el.get_attribute("data-game-status") == "3"
 
 
 def _player_id_and_image(tr) -> tuple[str, str]:
