@@ -93,7 +93,7 @@ def download_plays(driver: webdriver, base_name: str, result: list):
                 except:
                     pass
                 
-            time.sleep(5)
+        time.sleep(5)
 
     return player_urls
 
