@@ -71,24 +71,27 @@ def download_plays(driver: webdriver, base_name: str, result: list):
                 .catch(err => callback("ERROR: " + err));
             """
 
-            try:
-                print(f"Downloading clip {i} via browser fetch: {clip_name}...")
-                
-                # Execute async JS script to grab video blob as base64 string
-                base64_video_data = driver.execute_async_script(js_download_script, src)
-                
-                if base64_video_data.startswith("ERROR"):
-                    print(f"JavaScript Fetch failed: {base64_video_data}")
-                else:
-                    # Decode the raw base64 data and write it directly to the local disk file
-                    with open(save_path, "wb") as f:
-                        f.write(base64.b64decode(base64_video_data))
+            while True:
+                try:
+                    print(f"Downloading clip {i} via browser fetch: {clip_name}...")
                     
-                    player_urls.append((save_path, desc_raw))
-                    i += 1
+                    # Execute async JS script to grab video blob as base64 string
+                    base64_video_data = driver.execute_async_script(js_download_script, src)
                     
-            except Exception as e:
-                pass
+                    if base64_video_data.startswith("ERROR"):
+                        print(f"JavaScript Fetch failed: {base64_video_data}")
+                    else:
+                        # Decode the raw base64 data and write it directly to the local disk file
+                        with open(save_path, "wb") as f:
+                            f.write(base64.b64decode(base64_video_data))
+                        
+                        player_urls.append((save_path, desc_raw))
+                        i += 1
+                    
+                    break
+    
+                except:
+                    pass
                 
             time.sleep(1)
 
