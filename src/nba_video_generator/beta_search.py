@@ -37,33 +37,41 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
     while current_date <= end_date:
         date = current_date.strftime("%Y-%m-%d")
         data_is_home_team, pbp_url = get_pbp(driver, base_url, date, team)
-    
+
         if pbp_url is not None:
-            title, result = get_plays(driver, pbp_url, last_name, data_is_home_team)
+            title, result = get_plays(
+                driver, pbp_url, last_name, data_is_home_team
+            )
+
             if full_name is not None:
                 title = full_name + title
             else:
                 title = last_name + title
 
-            if os.path.exists(title + ".mp4"):
-                os.remove(title + ".mp4")
-
-            if len(result) > 0:
+            if not os.path.exists(title + ".mp4") and len(result) > 0:
                 try:
                     shutil.rmtree(base_name)
                 except Exception:
                     pass
+
                 os.makedirs(base_name)
 
                 player_urls = download_plays(driver, base_name, result)
 
                 time_secs, desc_txt = write_plays(
-                    title, base_name, date, player_urls, ffmpeg_path, preset, time_secs, desc_txt
+                    title,
+                    base_name,
+                    date,
+                    player_urls,
+                    ffmpeg_path,
+                    preset,
+                    time_secs,
+                    desc_txt,
                 )
 
                 if date_start != date_end:
                     f.write(f"file '{os.path.abspath(title + '.mp4')}'\n")
-                    titles.append(os.path.abspath(title + '.mp4'))
+                    titles.append(os.path.abspath(title + ".mp4"))
 
         current_date += timedelta(days=1)
 
@@ -125,6 +133,11 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
             titles.append(search(**params))
         except:
             pass
-        driver.close()
+        while True:
+            try:
+                driver.close()
+                break
+            except:
+                pass
 
     return titles
