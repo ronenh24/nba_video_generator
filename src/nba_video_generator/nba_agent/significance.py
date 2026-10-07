@@ -111,10 +111,9 @@ def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
         "fences, no commentary, no explanation before or after it.\n\n"
         "SELECTION CRITERIA\n"
         "KEEP a player if their line reflects real, winning-relevant impact: "
-        "elite scoring, a triple/quadruple-double, a rare stat combo, "
-        "defensive dominance (steals/blocks)...\n"
-        "CUT a player if the line looks like empty garbage-time stat padding, "
-        "inefficient scoring, or a statline that doesn't reflect meaningful impact.\n\n"
+        "elite scoring, a triple/quadruple-double, defensive dominance (steals/blocks)...\n"
+        "CUT a player if their line doesn't reflect meaningful impact: "
+        "inefficient scoring, empty garbage-time stat padding.\n\n"
         "OUTPUT FORMAT\n"
         'Respond with exactly one JSON object: {"keep": ["Player Name (TEAM)", ...]} '
         "using the identical \"Player Name (TEAM)\" strings shown in the "
