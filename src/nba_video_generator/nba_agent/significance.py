@@ -71,7 +71,7 @@ def rule_based_candidates(team_name: str, players: list[dict], threshold: bool =
     return candidates
 
 
-def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
+def ollama_judge(candidates: list[dict]) -> list[dict]:
     """
     Ask a local Ollama model which of the pre-filtered (and already
     factually-labeled) candidates is genuinely highlight-reel worthy —
@@ -88,8 +88,8 @@ def ollama_judge(game_label: str, candidates: list[dict]) -> list[dict]:
 
     prompt = (
         "ROLE\n"
-        "You are an NBA highlights producer picking which players from one "
-        f"game ({game_label}) get a highlight video made tonight.\n\n"
+        "You are an NBA highlights producer picking which players from the team " 
+        "get a highlight video made tonight.\n\n"
 
         "INPUT\n"
         "Each line below is a candidate who already cleared a statistical "
