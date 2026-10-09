@@ -73,89 +73,76 @@ def rule_based_candidates(team_name: str, players: list[dict], threshold: bool =
 
 def ollama_judge(candidates: list[dict]) -> list[dict]:
     """
-    Ask a local Ollama model which of the pre-filtered (and already
-    factually-labeled) candidates is genuinely highlight-reel worthy —
-    e.g. skip someone who padded a triple-double in a 30-point blowout loss.
-    The model only returns keep/cut decisions; it never restates or invents
-    stats, so its output can't misdescribe a player's line.
-    Returns the kept candidate dicts unchanged (REASON included).
+    Ask a local Ollama model which pre-filtered candidates deserve
+    highlight videos. Player and team names are excluded from the prompt.
+    The model returns candidate IDs only; original candidate dicts
+    are returned unchanged, including REASON.
     """
     if not candidates:
         return []
 
-    id_for = lambda c: f"{c['PLAYER']} ({c['TEAM']})"
-    lines = [f"- {id_for(c)}: {c['REASON']}, +/- {c.get('+/-','0')}" for c in candidates]
+    lines = [
+        f"- ID {i}: {c['REASON']}, +/- {c.get('+/-', '0')}"
+        for i, c in enumerate(candidates)
+    ]
 
     prompt = (
         "ROLE\n"
-        "You are an NBA highlights producer picking which players from the team " 
-        "get a highlight video made tonight.\n\n"
+        "You are an NBA highlights producer deciding which performances "
+        "deserve a highlight video tonight.\n\n"
 
         "INPUT\n"
-        "Each line below is a candidate who already cleared a statistical "
-        "bar. The REASON text for each was the statline directly from the box "
-        "score and is a verified, immutable fact. Treat it exactly like a "
-        "number handed to you by a calculator.\n\n"
+        "Each candidate has a numeric ID and a verified statline. "
+        "The REASON text is an immutable fact copied directly from the "
+        "box score. Player and team identities are intentionally omitted. "
+        "Judge performances solely on the supplied statistics.\n\n"
+
         + "\n".join(lines)
         + "\n\n"
 
-        "HARD RULES (breaking any of these makes your answer invalid)\n"
-        "1. You may only choose from the exact candidates listed above. "
-        "Never add a player, team, or stat that isn't already there.\n"
-        "2. Never restate, rephrase, round, recompute, or 'correct' a "
-        "REASON or +/- value. If you disagree with how impressive it "
-        "sounds, cut the player rather than editing the text.\n"
-        "3. Do not invent context you weren't given (final score, game time, "
-        "opponent record, role, injury, etc.). Judge only from the REASON shown.\n"
-        "4. Do not use the player name as a substitute for the REASON.\n"
-        "5. Do not use the player team as a substitute for the REASON.\n"
-        "6. +/- may be considered as supporting evidence, but it can NEVER "
-        "by itself make an otherwise unimpressive statline worth a highlight.\n"
-        "7. Output ONLY the JSON object described below — no markdown code "
-        "fences, no commentary, no explanation before or after it.\n\n"
+        "HARD RULES\n"
+        "1. Select only IDs present in the input.\n"
+        "2. Never invent, restate, rephrase, round, recompute, or correct "
+        "any statline or +/- value.\n"
+        "3. Do not invent game context, such as the final score, opponent, "
+        "game time, player role, or injuries.\n"
+        "4. Judge only the statistics shown. Do not infer player or team "
+        "identity.\n"
+        "5. +/- is supporting evidence only and cannot independently "
+        "justify a highlight.\n"
+        "6. Return only the JSON object specified below.\n\n"
 
         "HIGHLIGHT STANDARD\n"
-        "A player should be KEEP only when the statline itself clearly "
-        "supports a compelling NBA highlight video. The bar is high.\n\n"
+        "Keep a candidate only when the statline clearly supports a "
+        "compelling NBA highlight video. The bar is high.\n\n"
 
         "STRONG REASONS TO KEEP\n"
         "- Elite scoring volume or efficiency.\n"
         "- A triple-double or quadruple-double.\n"
-        "- Exceptional rebounding, especially dominant offensive rebounding.\n"
-        "- Defensive dominance through a high number of steals and/or blocks.\n"
-        "- A combination of multiple strong categories that clearly represents "
-        "an unusually impactful performance.\n\n"
+        "- Exceptional rebounding, especially offensive rebounding.\n"
+        "- Defensive dominance through numerous steals or blocks.\n"
+        "- Multiple strong statistical categories combining into an "
+        "unusually impactful performance.\n\n"
 
         "AUTOMATIC OR NEAR-AUTOMATIC CUTS\n"
-        "- Very low scoring without an exceptional contribution elsewhere.\n"
-        "- Poor scoring efficiency without enough other production to offset it.\n"
-        "- Ordinary or modest rebounding/assists that do not form a standout "
-        "overall statline.\n"
-        "- A statline with zero steals and zero blocks that otherwise lacks "
-        "elite scoring, rebounding, playmaking, or a major statistical milestone.\n"
-        "- High fouls without exceptional positive production.\n"
-        "- A strong +/- attached to an otherwise ordinary or inefficient "
-        "statline. Do not interpret +/- as proof that the player deserves "
-        "a highlight.\n\n"
-
-        "IMPORTANT EXAMPLE OF THE BAR\n"
-        "A player who scores only a few points, shoots poorly from the line "
-        "or field, has modest rebounds/assists, records no steals or blocks, "
-        "and has several fouls should generally be CUT. A positive +/- does "
-        "not override this. Do not manufacture a highlight case from the "
-        "plus-minus alone.\n\n"
+        "- Very low scoring without exceptional contributions elsewhere.\n"
+        "- Poor scoring efficiency without enough production to offset it.\n"
+        "- Ordinary rebounding or assists without standout overall output.\n"
+        "- Zero steals and zero blocks without elite scoring, rebounding, "
+        "playmaking, or a major statistical milestone.\n"
+        "- High foul counts without exceptional positive production.\n"
+        "- Strong +/- attached to an ordinary or inefficient statline.\n\n"
 
         "DECISION RULE\n"
-        "Ask: 'If someone saw only this REASON line, would this statline "
-        "clearly justify an NBA highlight video tonight?' If the answer is "
-        "no or even borderline, CUT the player. Prefer a false negative "
-        "over selecting an ordinary performance.\n\n"
+        "Would this statline alone clearly justify an NBA highlight video? "
+        "If no or borderline, cut it. Prefer false negatives over "
+        "ordinary performances.\n\n"
 
         "OUTPUT FORMAT\n"
-        'Respond with exactly one JSON object: {"keep": ["Player Name (TEAM)", ...]} '
-        "using the identical \"Player Name (TEAM)\" strings shown in the "
-        'candidate list above (copy them verbatim). Use {"keep": []} if no '
-        "candidate from this game's list clearly meets the highlight standard."
+        'Return exactly one JSON object: {"keep": [0, 2, ...]}. '
+        "Include only the numeric IDs of candidates to keep. "
+        "Return {\"keep\": []} if none qualify. Do not return names, "
+        "teams, statistics, explanations, or markdown."
     )
 
     while True:
@@ -171,8 +158,8 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
                 timeout=1000,
             )
             break
-        except:
-            pass
+        except Exception:
+            continue
 
     resp.raise_for_status()
 
@@ -183,15 +170,28 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
                 continue
 
             chunk = json.loads(line)
-
-            message = chunk.get("message", {})
-            content += message.get("content", "")
+            content += chunk.get("message", {}).get("content", "")
 
             if chunk.get("done"):
                 break
 
-        keep_ids = set(json.loads(content).get("keep", []))
+        keep_ids = set(json.loads(content)["keep"])
+
+        # Validate IDs before filtering.
+        if not isinstance(json.loads(content)["keep"], list):
+            return candidates
+
+        if any(
+            type(i) is not int or i < 0 or i >= len(candidates)
+            for i in keep_ids
+        ):
+            return candidates
+
     except (json.JSONDecodeError, KeyError, TypeError):
         return candidates
 
-    return [c for c in candidates if id_for(c) in keep_ids]
+    return [
+        candidate
+        for i, candidate in enumerate(candidates)
+        if i in keep_ids
+    ]
