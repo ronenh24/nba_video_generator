@@ -5,7 +5,7 @@ import os
 # Requires a local Ollama server (https://ollama.com) with a model pulled,
 # e.g.:  ollama pull gemma3:4b
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:9b")
 
 # --- Paths ---
 # Tracks which (player, team) pairs already had a video made for a given

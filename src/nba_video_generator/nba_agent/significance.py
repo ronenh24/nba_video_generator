@@ -17,15 +17,18 @@ def _num(value, default: float = 0.0) -> float:
 def describe(p: dict) -> str:
     """A short, factually-computed (never LLM-generated) reason string."""
     minutes = p["MIN"] + " Minutes"
-    pts = p["PTS"] + " Points (" + p["FGM"] + "-" + p["FGA"] + " FG, " + \
-        p["3PM"] + "-" + p["3PA"] + " 3PT, " + \
-        p["FTM"] + "-" + p["FTA"] + " FT)"
-    rb = p["REB"] + " Rebounds (" + p["OREB"] + " OREB, " + p["DREB"] + " DREB)"
+    pts = p["PTS"] + " Points (" + p["FGM"] + "-" + p["FGA"] + " Field Goals, " + \
+        p["3PM"] + "-" + p["3PA"] + " 3 Point Field Goals, " + \
+        p["FTM"] + "-" + p["FTA"] + " Free Throws)"
+    rb = p["REB"] + " Rebounds (" + p["OREB"] + " Offensive Rebounds, " + p["DREB"] + " Defensive Rebounds)"
     ast = p["AST"] + " Assists (" + p["TO"] + " Turnovers)"
     stl = p["STL"] + " Steals"
     blk = p["BLK"] + " Blocks"
     pf = p["PF"] + " Fouls"
-    pm = "+/- " + p["+/-"]
+    pm = "+/- "
+    if int(p["+/-"]) > 0:
+        pm += "+"
+    pm += p["+/-"]
 
     return ", ".join([minutes, pts, rb, ast, stl, blk, pf, pm])
 
@@ -71,108 +74,165 @@ def rule_based_candidates(team_name: str, players: list[dict], threshold: bool =
     return candidates
 
 
+import time
+
+
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "evaluations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "thinking": {"type": "string"},
+                    "strengths": {
+                        "type": "array",
+                        "uniqueItems": True,
+                        "maxItems": 5,
+                        "items": {
+                            "type": "string",
+                            "enum": ["scoring", "rebounding", "playmaking", "defense"],
+                        },
+                    },
+                    "keep": {"type": "boolean"},
+                },
+                "required": ["id", "thinking", "strengths", "keep"],
+            },
+        }
+    },
+    "required": ["evaluations"],
+}
+
+
 def ollama_judge(candidates: list[dict]) -> list[dict]:
     """
     Ask a local Ollama model which pre-filtered candidates deserve
     highlight videos. Player and team names are excluded from the prompt.
-    The model returns candidate IDs only; original candidate dicts
-    are returned unchanged, including REASON.
+    The model returns per-candidate strength lists; a candidate is kept
+    when the model finds three or more distinct strengths.
+    Original candidate dicts are returned unchanged, including REASON.
     """
     if not candidates:
         return []
 
     candidates = sorted(candidates, key=lambda c: int(c["PTS"]), reverse=True)
 
+    # +/- is stripped from the text the model sees; REASON itself is unchanged.
     lines = [
         f"- ID {i}: {c['REASON']}"
         for i, c in enumerate(candidates)
     ]
 
-    prompt = (
+    system_prompt = (
         "ROLE\n"
         "You are an NBA highlights producer deciding which performances "
         "deserve a highlight video tonight.\n\n"
 
         "INPUT\n"
-        "Each candidate has a numeric ID and a verified statline. "
-        "The numeric ID does not imply a ranking or order of importance. "
-        "The REASON text is an immutable fact copied directly from the "
-        "box score. Player and team identities are intentionally omitted. "
-        "Judge performances solely on the supplied statistics.\n\n"
+        "The user sends a list of candidates, each with an ID and a "
+        "verified box-score line. IDs are arbitrary labels with no "
+        "ranking. Player and team identities are omitted on purpose.\n\n"
 
-        + "\n".join(lines)
-        + "\n\n"
+        "HOW TO JUDGE\n"
+        "- Judge each line against what a genuinely memorable NBA "
+        "performance looks like, NOT against the other candidates tonight. "
+        "Many nights have no deserving candidate, and returning none is "
+        "correct and expected. Never keep a line just because it is the "
+        "best of a weak group.\n"
+        "- Look at the whole line: volume and efficiency of scoring, "
+        "rebounding, playmaking, and defensive stats (steals, blocks).\n"
+        "- Efficiency matters. Heavy volume on poor shooting, many "
+        "turnovers, or foul trouble weighs against a line.\n"
+        "- When in doubt, cut.\n\n"
 
-        "HARD RULES\n"
-        "1. Select only IDs present in the input.\n"
-        "2. Never invent, restate, rephrase, round, recompute, or correct "
-        "any statline or +/- value.\n"
-        "3. Do not invent game context, such as the final score, opponent, "
-        "game time, player role, or injuries.\n"
-        "4. Judge only the statistics shown. Do not infer player or team "
-        "identity.\n"
-        "5. +/- is supporting evidence only and cannot independently "
-        "justify a highlight.\n"
-        "6. You MUST evaluate every single candidate one by one before "
-        "making your final decision.\n"
-        "7. CRITICAL: All statistics (Points, Rebounds, Assists, etc.) "
-        "are NUMBERS. You MUST compare them mathematically (e.g., 9 < 10). "
-        "Do NOT compare them as strings (where the character '9' > '1').\n\n"
-
-        "HIGHLIGHT STANDARD\n"
-        "Keep a candidate only when the statline clearly supports a "
-        "compelling NBA highlight video. The bar is high. Prefer false "
-        "negatives over ordinary performances.\n\n"
-
-        "STRONG REASONS TO KEEP\n"
-        "- Elite scoring volume or efficiency (e.g., 30+ points, or 25+ on >60% FG).\n"
-        "- A triple-double or quadruple-double.\n"
-        "- Exceptional rebounding (e.g., 15+ rebounds, or 10+ with high offensive rebounds).\n"
-        "- Defensive dominance (e.g., 4+ steals, 3+ blocks, or 2+ of both).\n"
-        "- Multiple strong statistical categories combining into an "
-        "unusually impactful performance (e.g., 20 points, 8 assists, 3 steals).\n\n"
-
-        "AUTOMATIC OR NEAR-AUTOMATIC CUTS\n"
-        "- Very low scoring (under 15 points) without exceptional contributions elsewhere.\n"
-        "- Poor scoring efficiency (under 40% FG) without enough production to offset it.\n"
-        "- Ordinary rebounding or assists without standout overall output.\n"
-        "- Zero steals and zero blocks without elite scoring, rebounding, playmaking, or a major statistical milestone.\n"
-        "- High foul counts without exceptional positive production.\n"
-        "- Strong +/- attached to an ordinary or inefficient statline.\n\n"
+        "RULES\n"
+        "- Use only the numbers shown. Do not invent context such as "
+        "opponent, final score, injuries, or identity.\n"
+        "- Do not alter or restate any statline.\n"
+        "- All statistics are numbers; compare them numerically, not as "
+        "text.\n"
+        "- A category counts only if it is clearly impressive on its own "
+        "for a memorable NBA performance. Modest or average numbers do "
+        "not count. Never list a category just to fill the list.\n"
+        "- Evaluate every candidate, using the same standard for all.\n\n"
 
         "OUTPUT FORMAT\n"
-        "You must evaluate each candidate one by one. For each candidate, "
-        "first extract the key numeric stats as JSON integers, then decide "
-        "if they meet the highlight standard, and provide a brief reason. "
-        "Extracting them as integers forces you to treat them as numbers, "
-        "not strings (e.g., 9 < 10).\n"
-        "Return exactly one JSON object with the following structure:\n"
+        "Return exactly one JSON object and nothing else (no markdown). "
+        "It has one key, \"evaluations\", a list with exactly one entry "
+        "per candidate, in ID order. Each entry has these fields, in this "
+        "order:\n"
+        "- \"id\": integer, the candidate's ID from the input.\n"
+        "- \"thinking\": string, your reasoning about this line before you "
+        "decide. Assess each category (scoring, rebounding, playmaking, "
+        "defense) in turn. Note whether each is clearly impressive "
+        "or merely ordinary. For scoring, consider both volume and "
+        "efficiency together: high efficiency on few attempts is not "
+        "elite scoring. For playmaking, consider the absolute assist "
+        "total, not just the assist-to-turnover ratio: a low assist count "
+        "is not playmaking regardless of turnovers. "
+        "Keep it to two or three sentences.\n"
+        "- \"strengths\": list of every category in which this line is "
+        "clearly impressive, based on your thinking above. Use only these "
+        "values, each at most once:\n"
+        "    \"scoring\"     - high points volume, or high volume with good "
+        "efficiency. Low volume shooting, however efficient, does not count: "
+        "making 3 from 3 attempts is not elite scoring.\n"
+        "    \"rebounding\"  - total rebounds, especially offensive\n"
+        "    \"playmaking\"  - a high number of assists with few turnovers. "
+        "A low assist total does not count even with zero turnovers: "
+        "keeping the ball does not make someone a playmaker.\n"
+        "    \"defense\"      - steals and blocks weighted against fouls.\n"
+        "  Use an empty list [] if nothing stands out.\n"
+        "- \"keep\": boolean. True if this performance deserves a highlight "
+        "video, based on your thinking and strengths above. False otherwise.\n"
+        "Example:\n"
         "{\n"
         '  "evaluations": [\n'
-        '    {"id": 0, "stats": {"pts": 6, "reb": 2, "ast": 4, "stl": 2, "blk": 0}, "keep": false, "reason": "6 points is too low."},\n'
-        '    {"id": 1, "stats": {"pts": 30, "reb": 10, "ast": 8, "stl": 1, "blk": 0}, "keep": true, "reason": "30 points, 10 rebounds is elite."}\n'
-        "  ],\n"
-        '  "keep": [1]\n'
-        "}\n"
-        "The 'keep' array must contain only the IDs where 'keep' is true in the evaluations. "
-        "Do not return markdown. Return only valid JSON."
+        '    {"id": 0, "thinking": "5 points on 1-4 shooting is poor '
+        'scoring. 3 rebounds and 3 assists are ordinary. 1 steal is '
+        'unremarkable.", "strengths": [], "keep": false},\n'
+        '    {"id": 1, "thinking": "28 points on 11-16 shooting is elite '
+        'scoring volume and efficiency. 12 rebounds is exceptional. '
+        '3 steals is very strong defensively.", '
+        '"strengths": ["scoring", "rebounding", "steals"], "keep": true}\n'
+        "  ]\n"
+        "}"
     )
 
-    while True:
+    user_prompt = (
+        f"CANDIDATES ({len(candidates)} total, IDs 0 to {len(candidates) - 1})\n"
+        + "\n".join(lines)
+        + "\n\nEvaluate every candidate above and return the JSON object."
+    )
+
+    resp = None
+    for attempt in range(5):
         try:
             resp = requests.post(
                 f"{OLLAMA_HOST}/api/chat",
                 json={
                     "model": OLLAMA_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "format": "json",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "format": SCHEMA,
                     "stream": True,
+                    "think": False,
+                    "keep_alive": "30m",
+                    "options": {"temperature": 0, "num_ctx": 8192},
                 },
-                timeout=1000,
+                timeout=600,
+                stream=True,
             )
             break
-        except Exception:
-            continue
+        except requests.RequestException:
+            time.sleep(2 * (attempt + 1))
+
+    if resp is None:
+        return candidates
 
     resp.raise_for_status()
 
@@ -188,17 +248,19 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
             if chunk.get("done"):
                 break
 
-        keep_ids = set(json.loads(content)["keep"])
+        data = json.loads(content)
+        evaluations = data["evaluations"]
 
-        # Validate IDs before filtering.
-        if not isinstance(json.loads(content)["keep"], list):
+        if not isinstance(evaluations, list) or len(evaluations) != len(candidates):
             return candidates
 
-        if any(
-            type(i) is not int or i < 0 or i >= len(candidates)
-            for i in keep_ids
-        ):
-            return candidates
+        keep_ids = set()
+        for e in evaluations:
+            i = e["id"]
+            if type(i) is not int or i < 0 or i >= len(candidates):
+                return candidates
+            if e.get("keep") is True:
+                keep_ids.add(i)
 
     except (json.JSONDecodeError, KeyError, TypeError):
         return candidates
