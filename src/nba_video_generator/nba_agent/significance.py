@@ -81,7 +81,7 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
     if not candidates:
         return []
 
-    candidates = sorted(candidates, key=lambda c: c["PTS"], reverse=True)
+    candidates = sorted(candidates, key=lambda c: int(c["PTS"]), reverse=True)
 
     lines = [
         f"- ID {i}: {c['REASON']}"
