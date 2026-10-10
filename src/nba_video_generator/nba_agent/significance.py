@@ -81,8 +81,10 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
     if not candidates:
         return []
 
+    candidates = sorted(candidates, key=lambda c: c["PTS"], reverse=True)
+
     lines = [
-        f"- ID {i}: {c['REASON']}, +/- {c.get('+/-', '0')}"
+        f"- ID {i}: {c['REASON']}"
         for i, c in enumerate(candidates)
     ]
 
@@ -93,6 +95,7 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
 
         "INPUT\n"
         "Each candidate has a numeric ID and a verified statline. "
+        "The numeric ID does not imply a ranking or order of importance. "
         "The REASON text is an immutable fact copied directly from the "
         "box score. Player and team identities are intentionally omitted. "
         "Judge performances solely on the supplied statistics.\n\n"
@@ -110,39 +113,49 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
         "identity.\n"
         "5. +/- is supporting evidence only and cannot independently "
         "justify a highlight.\n"
-        "6. Return only the JSON object specified below.\n\n"
+        "6. You MUST evaluate every single candidate one by one before "
+        "making your final decision.\n"
+        "7. CRITICAL: All statistics (Points, Rebounds, Assists, etc.) "
+        "are NUMBERS. You MUST compare them mathematically (e.g., 9 < 10). "
+        "Do NOT compare them as strings (where the character '9' > '1').\n\n"
 
         "HIGHLIGHT STANDARD\n"
         "Keep a candidate only when the statline clearly supports a "
-        "compelling NBA highlight video. The bar is high.\n\n"
+        "compelling NBA highlight video. The bar is high. Prefer false "
+        "negatives over ordinary performances.\n\n"
 
         "STRONG REASONS TO KEEP\n"
-        "- Elite scoring volume or efficiency.\n"
+        "- Elite scoring volume or efficiency (e.g., 30+ points, or 25+ on >60% FG).\n"
         "- A triple-double or quadruple-double.\n"
-        "- Exceptional rebounding, especially offensive rebounding.\n"
-        "- Defensive dominance through numerous steals or blocks.\n"
+        "- Exceptional rebounding (e.g., 15+ rebounds, or 10+ with high offensive rebounds).\n"
+        "- Defensive dominance (e.g., 4+ steals, 3+ blocks, or 2+ of both).\n"
         "- Multiple strong statistical categories combining into an "
-        "unusually impactful performance.\n\n"
+        "unusually impactful performance (e.g., 20 points, 8 assists, 3 steals).\n\n"
 
         "AUTOMATIC OR NEAR-AUTOMATIC CUTS\n"
-        "- Very low scoring without exceptional contributions elsewhere.\n"
-        "- Poor scoring efficiency without enough production to offset it.\n"
+        "- Very low scoring (under 15 points) without exceptional contributions elsewhere.\n"
+        "- Poor scoring efficiency (under 40% FG) without enough production to offset it.\n"
         "- Ordinary rebounding or assists without standout overall output.\n"
-        "- Zero steals and zero blocks without elite scoring, rebounding, "
-        "playmaking, or a major statistical milestone.\n"
+        "- Zero steals and zero blocks without elite scoring, rebounding, playmaking, or a major statistical milestone.\n"
         "- High foul counts without exceptional positive production.\n"
         "- Strong +/- attached to an ordinary or inefficient statline.\n\n"
 
-        "DECISION RULE\n"
-        "Would this statline alone clearly justify an NBA highlight video? "
-        "If no or borderline, cut it. Prefer false negatives over "
-        "ordinary performances.\n\n"
-
         "OUTPUT FORMAT\n"
-        'Return exactly one JSON object: {"keep": [0, 2, ...]}. '
-        "Include only the numeric IDs of candidates to keep. "
-        "Return {\"keep\": []} if none qualify. Do not return names, "
-        "teams, statistics, explanations, or markdown."
+        "You must evaluate each candidate one by one. For each candidate, "
+        "first extract the key numeric stats as JSON integers, then decide "
+        "if they meet the highlight standard, and provide a brief reason. "
+        "Extracting them as integers forces you to treat them as numbers, "
+        "not strings (e.g., 9 < 10).\n"
+        "Return exactly one JSON object with the following structure:\n"
+        "{\n"
+        '  "evaluations": [\n'
+        '    {"id": 0, "stats": {"pts": 6, "reb": 2, "ast": 4, "stl": 2, "blk": 0}, "keep": false, "reason": "6 points is too low."},\n'
+        '    {"id": 1, "stats": {"pts": 30, "reb": 10, "ast": 8, "stl": 1, "blk": 0}, "keep": true, "reason": "30 points, 10 rebounds is elite."}\n'
+        "  ],\n"
+        '  "keep": [1]\n'
+        "}\n"
+        "The 'keep' array must contain only the IDs where 'keep' is true in the evaluations. "
+        "Do not return markdown. Return only valid JSON."
     )
 
     while True:
