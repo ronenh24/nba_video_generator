@@ -2,6 +2,7 @@
 import json
 import requests
 import time
+import random
 
 from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN, SCHEMA, system_prompt
 
@@ -99,6 +100,8 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
     """
     if not candidates:
         return []
+
+    random.shuffle(candidates)
 
     lines = [
         f"- ID {i}: {c['REASON']}"
