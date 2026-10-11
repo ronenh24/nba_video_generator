@@ -129,7 +129,7 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
                     "stream": True,
                     "think": False,
                     "keep_alive": "30m",
-                    "options": {"temperature": 0, "num_ctx": 8192},
+                    "options": {"num_ctx": 8192},
                 },
                 timeout=600,
                 stream=True,
