@@ -106,7 +106,7 @@ def get_boxscore_urls_for_date(driver, date: str) -> list[str]:
     """Return box-score page URLs (in schedule order) for FINAL games only."""
     driver.get(BASE_GAMES_URL.format(date=date))
 
-    WebDriverWait(driver, 15).until(
+    WebDriverWait(driver, 30).until(
         EC.presence_of_element_located((By.CSS_SELECTOR, GAME_STATUS_SELECTOR))
     )
     time.sleep(1.5)
