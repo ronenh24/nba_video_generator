@@ -100,9 +100,6 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
     if not candidates:
         return []
 
-    candidates = sorted(candidates, key=lambda c: int(c["PTS"]), reverse=True)
-
-    # +/- is stripped from the text the model sees; REASON itself is unchanged.
     lines = [
         f"- ID {i}: {c['REASON']}"
         for i, c in enumerate(candidates)

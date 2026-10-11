@@ -116,9 +116,12 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
     for name, date_start, date_end, team in name_date_team:
         service = Service(log_output=os.devnull)
         options = webdriver.ChromeOptions()
+        options.add_argument("--headless=new")
         options.add_argument("--log-level=3")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
         driver = webdriver.Chrome(service=service, options=options)
-        driver.maximize_window()
+        # driver.maximize_window()
         # driver.implicitly_wait(3)
         if isinstance(name, str):
             params["last_name"] = name
