@@ -147,6 +147,7 @@ def run_for_date(
     service = Service(log_output=os.devnull)
     options = webdriver.ChromeOptions()
     options.add_argument("--log-level=3")
+    options.add_argument("--headless")
 
     driver = webdriver.Chrome(service=service, options=options)
     driver.maximize_window()
@@ -334,7 +335,7 @@ def run_for_date(
                     already_done_list.append(key)
 
     finally:
-        driver.close()
+        driver.quit()
 
     if jobs:
         titles = pipeline(

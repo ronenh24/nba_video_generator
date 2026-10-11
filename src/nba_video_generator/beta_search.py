@@ -117,6 +117,7 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
         service = Service(log_output=os.devnull)
         options = webdriver.ChromeOptions()
         options.add_argument("--log-level=3")
+        options.add_argument("--headless")
         driver = webdriver.Chrome(service=service, options=options)
         driver.maximize_window()
         # driver.implicitly_wait(3)
@@ -133,11 +134,6 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
             titles.append(search(**params))
         except:
             pass
-        while True:
-            try:
-                driver.close()
-                break
-            except:
-                pass
+        driver.quit()
 
     return titles
