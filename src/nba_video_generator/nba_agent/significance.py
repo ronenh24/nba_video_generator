@@ -1,8 +1,9 @@
 """Rule-based pre-filter + Ollama-based judgment of "must-see" performances."""
 import json
 import requests
+import time
 
-from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN
+from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN, SCHEMA, system_prompt
 
 
 def _num(value, default: float = 0.0) -> float:
@@ -25,10 +26,8 @@ def describe(p: dict) -> str:
     stl = p["STL"] + " Steals"
     blk = p["BLK"] + " Blocks"
     pf = p["PF"] + " Fouls"
-    pm = "+/- "
-    if int(p["+/-"]) > 0:
-        pm += "+"
-    pm += p["+/-"]
+    pm_value = _num(p.get("+/-"))
+    pm = f"+/- {pm_value:+g}"
 
     return ", ".join([minutes, pts, rb, ast, stl, blk, pf, pm])
 
@@ -74,45 +73,29 @@ def rule_based_candidates(team_name: str, players: list[dict], threshold: bool =
     return candidates
 
 
-import time
-
-
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "evaluations": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "integer"},
-                    "thinking": {"type": "string"},
-                    "strengths": {
-                        "type": "array",
-                        "uniqueItems": True,
-                        "maxItems": 5,
-                        "items": {
-                            "type": "string",
-                            "enum": ["scoring", "rebounding", "playmaking", "defense"],
-                        },
-                    },
-                    "keep": {"type": "boolean"},
-                },
-                "required": ["id", "thinking", "strengths", "keep"],
-            },
-        }
-    },
-    "required": ["evaluations"],
-}
-
-
 def ollama_judge(candidates: list[dict]) -> list[dict]:
     """
-    Ask a local Ollama model which pre-filtered candidates deserve
-    highlight videos. Player and team names are excluded from the prompt.
-    The model returns per-candidate strength lists; a candidate is kept
-    when the model finds three or more distinct strengths.
-    Original candidate dicts are returned unchanged, including REASON.
+    Ask a local Ollama model to evaluate pre-filtered NBA performances
+    and decide which deserve highlight videos.
+
+    Candidates are sorted by points scored, and player and team names
+    are excluded from the prompt. The model evaluates each statline
+    across scoring, rebounding, playmaking, defense, and overall impact,
+    identifying only categories that are clearly impressive.
+
+    After the initial evaluation, the model reconsiders its reasoning
+    and strengths before making its final keep decision. It must verify
+    that every listed strength is supported by the numbers and that the
+    performance as a whole genuinely deserves a highlight video. Having
+    three or more strengths does not automatically qualify a candidate.
+
+    The model returns a structured JSON evaluation for every candidate.
+    Candidates with a final keep decision of True are retained. If the
+    model request fails, or its response cannot be parsed or validated,
+    the original sorted candidate list is returned as a fallback.
+
+    Original candidate dictionaries are returned unchanged, including
+    REASON and all other fields.
     """
     if not candidates:
         return []
@@ -124,82 +107,6 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
         f"- ID {i}: {c['REASON']}"
         for i, c in enumerate(candidates)
     ]
-
-    system_prompt = (
-        "ROLE\n"
-        "You are an NBA highlights producer deciding which performances "
-        "deserve a highlight video tonight.\n\n"
-
-        "INPUT\n"
-        "The user sends a list of candidates, each with an ID and a "
-        "verified box-score line. IDs are arbitrary labels with no "
-        "ranking. Player and team identities are omitted on purpose.\n\n"
-
-        "HOW TO JUDGE\n"
-        "- Judge each line against what a genuinely memorable NBA "
-        "performance looks like, NOT against the other candidates tonight. "
-        "Many nights have no deserving candidate, and returning none is "
-        "correct and expected. Never keep a line just because it is the "
-        "best of a weak group.\n"
-        "- Look at the whole line: volume and efficiency of scoring, "
-        "rebounding, playmaking, and defensive stats (steals, blocks).\n"
-        "- Efficiency matters. Heavy volume on poor shooting, many "
-        "turnovers, or foul trouble weighs against a line.\n"
-        "- When in doubt, cut.\n\n"
-
-        "RULES\n"
-        "- Use only the numbers shown. Do not invent context such as "
-        "opponent, final score, injuries, or identity.\n"
-        "- Do not alter or restate any statline.\n"
-        "- All statistics are numbers; compare them numerically, not as "
-        "text.\n"
-        "- A category counts only if it is clearly impressive on its own "
-        "for a memorable NBA performance. Modest or average numbers do "
-        "not count. Never list a category just to fill the list.\n"
-        "- Evaluate every candidate, using the same standard for all.\n\n"
-
-        "OUTPUT FORMAT\n"
-        "Return exactly one JSON object and nothing else (no markdown). "
-        "It has one key, \"evaluations\", a list with exactly one entry "
-        "per candidate, in ID order. Each entry has these fields, in this "
-        "order:\n"
-        "- \"id\": integer, the candidate's ID from the input.\n"
-        "- \"thinking\": string, your reasoning about this line before you "
-        "decide. Assess each category (scoring, rebounding, playmaking, "
-        "defense) in turn. Note whether each is clearly impressive "
-        "or merely ordinary. For scoring, consider both volume and "
-        "efficiency together: high efficiency on few attempts is not "
-        "elite scoring. For playmaking, consider the absolute assist "
-        "total, not just the assist-to-turnover ratio: a low assist count "
-        "is not playmaking regardless of turnovers. "
-        "Keep it to two or three sentences.\n"
-        "- \"strengths\": list of every category in which this line is "
-        "clearly impressive, based on your thinking above. Use only these "
-        "values, each at most once:\n"
-        "    \"scoring\"     - high points volume, or high volume with good "
-        "efficiency. Low volume shooting, however efficient, does not count: "
-        "making 3 from 3 attempts is not elite scoring.\n"
-        "    \"rebounding\"  - total rebounds, especially offensive\n"
-        "    \"playmaking\"  - a high number of assists with few turnovers. "
-        "A low assist total does not count even with zero turnovers: "
-        "keeping the ball does not make someone a playmaker.\n"
-        "    \"defense\"      - steals and blocks weighted against fouls.\n"
-        "  Use an empty list [] if nothing stands out.\n"
-        "- \"keep\": boolean. True if this performance deserves a highlight "
-        "video, based on your thinking and strengths above. False otherwise.\n"
-        "Example:\n"
-        "{\n"
-        '  "evaluations": [\n'
-        '    {"id": 0, "thinking": "5 points on 1-4 shooting is poor '
-        'scoring. 3 rebounds and 3 assists are ordinary. 1 steal is '
-        'unremarkable.", "strengths": [], "keep": false},\n'
-        '    {"id": 1, "thinking": "28 points on 11-16 shooting is elite '
-        'scoring volume and efficiency. 12 rebounds is exceptional. '
-        '3 steals is very strong defensively.", '
-        '"strengths": ["scoring", "rebounding", "steals"], "keep": true}\n'
-        "  ]\n"
-        "}"
-    )
 
     user_prompt = (
         f"CANDIDATES ({len(candidates)} total, IDs 0 to {len(candidates) - 1})\n"
