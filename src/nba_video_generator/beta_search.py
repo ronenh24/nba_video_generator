@@ -126,6 +126,8 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
             params["last_name"] = name
         else:
             params["last_name"] = name[0]
+            if params["last_name"] == "Yang":
+                params["last_name"] = "Hansen"
             params["full_name"] = name[1]
         params["date_start"] = date_start
         params["date_end"] = date_end
