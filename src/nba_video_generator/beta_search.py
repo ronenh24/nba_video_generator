@@ -48,7 +48,7 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
             else:
                 title = last_name + title
 
-            if not os.path.exists(title + ".mp4") and len(result) > 0:
+            if len(result) > 0:
                 try:
                     shutil.rmtree(base_name)
                 except Exception:
@@ -61,7 +61,6 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
                 time_secs, desc_txt = write_plays(
                     title,
                     base_name,
-                    date,
                     player_urls,
                     ffmpeg_path,
                     preset,
