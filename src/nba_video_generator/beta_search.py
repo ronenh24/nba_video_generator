@@ -18,7 +18,7 @@ base_url = "https://www.nba.com/games?date="
 
 def search(driver: webdriver, last_name: str, date_start: str, date_end: str, team: str,
            ffmpeg_path: str = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe",
-           preset: str = "ultrafast", full_name: str | None = None):
+           preset: str = "veryfast", full_name: str | None = None):
     if date_end is None:
         date_end = date_start
 

@@ -72,7 +72,7 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
     os.makedirs(base_name, exist_ok=True)
 
     starts, durations, rel = [], [], 0.0
-    for event_url, desc in player_urls:
+    for event_url, _ in player_urls:
         with av.open(event_url) as container:
             duration = container.duration / 1e6
         starts.append(rel)
@@ -101,7 +101,7 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
         )
 
         # ---- detect repeats ----
-        deduper = VideoDeduper(raw_path, ffmpeg_path, preset=preset, crf=10, verbose=False)
+        deduper = VideoDeduper(raw_path, ffmpeg_path, preset=preset, verbose=False)
         repeats = deduper.detect()
         removals = deduper.plan_removals(repeats)
 
