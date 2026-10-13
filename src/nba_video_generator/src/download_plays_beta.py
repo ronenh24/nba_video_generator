@@ -173,6 +173,7 @@ def download_plays(
                     time.sleep(2 * attempt)
 
                     try:
+                        driver.delete_all_cookies()
                         driver.refresh()
                     except Exception:
                         pass
