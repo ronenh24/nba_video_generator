@@ -13,3 +13,4 @@ src/nba_video_generator/ffmpeg-9.0.2-essentials_build/
 archive/
 *.jpg
 *.json
+*.mkv

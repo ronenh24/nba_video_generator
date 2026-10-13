@@ -77,7 +77,7 @@ def get_plays(driver: webdriver, pbp_url: str, last_name: str, data_is_home_team
                     pass
         quarter += 1
 
-    # result = combine_events(result)
+    result = combine_events(result)
 
     return title, result
 
@@ -118,98 +118,97 @@ def _find_foul_url(rows, i, play_time):
     return None
 
 
-# def combine_events(events, max_gap=5):
-#     combined = []
-#     current = None
+def combine_events(events, max_gap=2):
+    combined = []
+    current = None
 
-#     i = 0
-#     while i < len(events):
-#         url, desc, quarter, time = events[i]
-#         desc_l = desc.lower()
+    i = 0
+    while i < len(events):
+        url, desc, quarter, time = events[i]
+        desc_l = desc.lower()
 
-#         is_free_throw = "free throw" in desc_l
-#         is_foul = "foul" in desc_l
-#         is_off_foul = "offensive foul" in desc_l or "off. foul" in desc_l
-#         is_timeout = "timeout" in desc_l
+        is_free_throw = "free throw" in desc_l
+        is_off_foul = "offensive foul" in desc_l or "off. foul" in desc_l
+        is_timeout = "timeout" in desc_l
 
-#         event = {
-#             "url": url,
-#             "desc": desc,
-#             "quarter": quarter,
-#             "time": time,
-#         }
+        event = {
+            "url": url,
+            "desc": desc,
+            "quarter": quarter,
+            "time": time,
+        }
 
         # Skip offensive fouls
-#         if is_off_foul:
-#             i += 1
-#             continue
+        if is_off_foul:
+            i += 1
+            continue
 
         # Keep free throws separate
-#         if is_free_throw:
-#             if current:
-#                 combined.append((
-#                     current["url"],
-#                     current["desc"],
-#                     current["quarter"],
-#                     current["time"],
-#                 ))
-#                 current = None
+        if is_free_throw:
+            if current:
+                combined.append((
+                    current["url"],
+                    current["desc"],
+                    current["quarter"],
+                    current["time"],
+                ))
+                current = None
 
-#             combined.append((url, desc, quarter, time))
-#             i += 1
-#             continue
+            combined.append((url, desc, quarter, time))
+            i += 1
+            continue
 
         # Keep timeouts separate
-#         if is_timeout:
-#             if current:
-#                 combined.append((
-#                     current["url"],
-#                     current["desc"],
-#                     current["quarter"],
-#                     current["time"],
-#                 ))
-#                 current = None
+        if is_timeout:
+            if current:
+                combined.append((
+                    current["url"],
+                    current["desc"],
+                    current["quarter"],
+                    current["time"],
+                ))
+                current = None
 
-#             i += 1
-#             continue
+            i += 1
+            continue
 
-#         if current is None:
-#             current = event
-#             i += 1
-#             continue
+        if current is None:
+            current = event
+            i += 1
+            continue
 
-#         current_desc_l = current["desc"].lower()
+        current_desc_l = current["desc"].lower()
 
-#         same_quarter = quarter == current["quarter"]
-#         time_diff = abs(current["time"] - time)
+        same_quarter = quarter == current["quarter"]
+        time_diff = abs(current["time"] - time)
 
-#         can_merge = (
-#             same_quarter
-#             and time_diff <= max_gap
-#             and "foul" not in current_desc_l
-#         )
+        can_merge = (
+            same_quarter
+            and time_diff <= max_gap
+            and "foul" not in current_desc_l
+        )
 
-#         if can_merge:
-#             current["desc"] = f'{current["desc"]}, {desc}'
-#             current["url"] = url
-#             current["time"] = max(current["time"], time)
-#         else:
-#             combined.append((
-#                 current["url"],
-#                 current["desc"],
-#                 current["quarter"],
-#                 current["time"],
-#             ))
-#             current = event
+        if can_merge:
+            current["desc"] = f'{current["desc"]}, {desc}'
+            current["url"] = url
+            current["time"] = max(current["time"], time)
+        else:
+            combined.append((
+                current["url"],
+                current["desc"],
+                current["quarter"],
+                current["time"],
+            ))
+            current = event
 
-#         i += 1
+        i += 1
 
-#     if current:
-#         combined.append((
-#             current["url"],
-#             current["desc"],
-#             current["quarter"],
-#             current["time"],
-#         ))
+    if current:
+        combined.append((
+            current["url"],
+            current["desc"],
+            current["quarter"],
+            current["time"],
+        ))
 
-#     return combined
+    return combined
