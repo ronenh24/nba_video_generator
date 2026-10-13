@@ -251,47 +251,20 @@ class VideoDeduper:
         return repeats
  
     # ------------------------------------------------------------ step 3: cut
-    @staticmethod
-    def _subtract(span, protected):
-        """span minus a list of protected (s, e) ranges -> list of (s, e)."""
-        pieces = [list(span)]
-        for ps, pe in protected:
-            nxt = []
-            for s, e in pieces:
-                if pe <= s or ps >= e:
-                    nxt.append([s, e])
-                    continue
-                if ps > s:
-                    nxt.append([s, ps])
-                if pe < e:
-                    nxt.append([pe, e])
-            pieces = nxt
-        return [tuple(p) for p in pieces if p[1] - p[0] > 0.05]
-
     def plan_removals(self, repeats):
-        """Time ranges to delete so that only one copy of each repeat remains.
-        The copy that is kept is never allowed to be cut by another repeat."""
-        spans, protected = [], []
+        """Time ranges to delete so that only one copy of each repeat remains."""
+        removals = []
         for r in repeats:
             if self.keep == "last":
-                if r.end - r.second_start > 0.75:      # loop of 3+ copies
-                    rem = (r.start, r.end)
-                    kept = (r.end, r.second_end)
-                elif r.end > r.second_start - 1.0:     # back-to-back copies
-                    rem = (r.start, r.second_start)
-                    kept = (r.second_start, r.second_end)
+                if r.end - r.second_start > 0.75:
+                    end = r.end                      # loop of 3+ copies: the whole first run goes
+                elif r.end > r.second_start - 1.0:
+                    end = r.second_start             # back-to-back copies: remove exactly one copy
                 else:
-                    rem = (r.start, r.end)
-                    kept = (r.second_start, r.second_end)
+                    end = r.end
+                removals.append((r.start, end))
             else:
-                rem = (r.second_start, r.second_end)
-                kept = (r.start, r.end)
-            spans.append(rem)
-            protected.append(kept)
-
-        removals = []
-        for span in spans:
-            removals.extend(self._subtract(span, protected))
+                removals.append((r.second_start, r.second_end))
         removals.sort()
         merged = []
         for s, e in removals:
