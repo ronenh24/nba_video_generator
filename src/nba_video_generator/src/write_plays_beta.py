@@ -101,7 +101,7 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
         )
 
         # ---- detect repeats ----
-        deduper = VideoDeduper(raw_path, ffmpeg_path, preset=preset, verbose=False)
+        deduper = VideoDeduper(raw_path, ffmpeg_path, preset=preset)
         repeats = deduper.detect()
         removals = deduper.plan_removals(repeats)
 

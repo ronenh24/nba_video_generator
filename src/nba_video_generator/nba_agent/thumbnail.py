@@ -8,11 +8,11 @@ import base64
 import functools
 import io
 import os
-import re
 import unicodedata
 import urllib.request
 
 from .team_logo import logo_layer
+from .team_map import team_for
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -244,6 +244,7 @@ def _split_name(name: str) -> tuple[str, str]:
 # --------------------------------------------------------------------------
 def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -> str:
     player_name = _remove_accents(player_name)
+    team_name = team_for(team_abbr)
 
     color = _hex(TEAM_COLORS.get(team_abbr, DEFAULT_COLOR))
     img = _background(color)
@@ -265,10 +266,33 @@ def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -
 
     # Top-left: team pill + badge
     pill_font = _font(34)
-    draw.rounded_rectangle((60, 45, 60 + 120, 45 + 56), 14, fill=color + (255,))
-    tw = draw.textlength(team_abbr, font=pill_font)
-    _text(draw, (60 + (120 - tw) / 2, 52), team_abbr, pill_font)
-    _text(draw, (200, 54), badge_text(row), _font(38), fill=(255, 214, 10))
+    text_width = draw.textlength(team_name, font=pill_font)
+
+    padding_x = 16
+    padding_y = 12
+    pill_width = text_width + padding_x * 2
+    pill_height = 56
+
+    draw.rounded_rectangle(
+        (60, 45, 60 + pill_width, 45 + pill_height),
+        radius=14,
+        fill=color + (255,)
+    )
+
+    _text(
+        draw,
+        (60 + padding_x, 45 + padding_y),
+        team_name,
+        pill_font
+    )
+
+    _text(
+        draw,
+        (60 + pill_width + 20, 54),
+        badge_text(row),
+        _font(38),
+        fill=(255, 214, 10)
+    )
 
     # Name
     first, last = _split_name(player_name)

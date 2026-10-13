@@ -24,12 +24,12 @@ FFMPEG_PATH = os.environ.get(
 # highlight-worthy/not judgment call. Keeps the LLM prompt small and keeps
 # it from hallucinating candidates out of thin air.
 THRESHOLDS = {
-    "PTS": 25,
-    "REB": 12,
-    "AST": 7,
-    "STL": 3,
-    "BLK": 3,
-    "3PM": 7,
+    "PTS": 20,
+    "REB": 10,
+    "AST": 5,
+    "STL": 2,
+    "BLK": 2,
+    "3PM": 5,
 }
 TRIPLE_DOUBLE_CATS = ["PTS", "REB", "AST", "STL", "BLK"]
 TRIPLE_DOUBLE_MIN = 10  # double-digit in 3+ of the categories above
