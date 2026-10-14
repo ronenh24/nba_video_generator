@@ -101,7 +101,7 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
     if not candidates:
         return []
 
-    random.shuffle(candidates)
+    candidates = sorted(candidates, key=lambda p: int(p["PTS"]), reverse=True)
 
     lines = [
         f"- ID {i}: {c['REASON']}"
@@ -129,6 +129,7 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
                     "stream": True,
                     "think": False,
                     "keep_alive": -1,
+                    "options": {"temperature": 0.2, "num_ctx": 10000}
                 },
                 timeout=600,
                 stream=True,
