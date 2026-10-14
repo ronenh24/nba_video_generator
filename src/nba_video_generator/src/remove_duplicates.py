@@ -45,46 +45,43 @@ class VideoDeduper:
             raise ValueError("keep must be 'first' or 'last'")
         self.path = path
         self.keep = keep
-        self.fps = fps                # sampling rate used for detection
-        self.max_dist = max_dist      # max differing hash bits (of 64)
-        self.min_sec = min_sec        # minimum repeat length
-        self.min_gap = min_gap        # ignore matches closer than this
+        self.fps = fps
+        self.max_dist = max_dist
+        self.min_sec = min_sec
+        self.min_gap = min_gap
         self.crf = crf
         self.preset = preset
         self.verbose = verbose
-        self.max_diff = max_diff      # max mean pixel difference between the two copies (0-255)
+        self.max_diff = max_diff
         self.ffmpeg_path = ffmpeg_path
-        # if no ffprobe path is given, look next to ffmpeg (e.g. C:/ffmpeg/bin/ffprobe.exe)
         self.ffprobe_path = ffprobe_path or self._sibling_ffprobe(ffmpeg_path)
         self._total = None
         self._audio = None
- 
+
     # ------------------------------------------------------------ utilities
     @staticmethod
     def _sibling_ffprobe(ffmpeg_path):
-        """Guess the ffprobe path from the ffmpeg path (same folder, same extension)."""
         folder, name = os.path.split(ffmpeg_path)
         base, ext = os.path.splitext(name)
         probe = "ffprobe" if base.lower() == "ffmpeg" else base.replace("ffmpeg", "ffprobe")
         return os.path.join(folder, probe + ext)
- 
+
     def _log(self, msg=""):
         if self.verbose:
             print(msg)
- 
+
     @staticmethod
     def _run(cmd):
         return subprocess.run(cmd, capture_output=True, check=True)
- 
+
     @property
     def total(self):
-        """Video duration in seconds."""
         if self._total is None:
             out = self._run([self.ffprobe_path, "-v", "error", "-show_entries", "format=duration",
                              "-of", "default=nw=1:nk=1", self.path]).stdout
             self._total = float(out.decode().strip())
         return self._total
- 
+
     @property
     def has_audio(self):
         if self._audio is None:
@@ -93,34 +90,37 @@ class VideoDeduper:
                              self.path]).stdout
             self._audio = bool(out.strip())
         return self._audio
- 
+
     def grab_frames(self, start, length, fps, w, h):
-        """Grayscale frames (N x h x w, float32) from [start, start+length)."""
         cmd = [self.ffmpeg_path, "-v", "error", "-ss", f"{start:.3f}", "-t", f"{length:.3f}",
                "-i", self.path, "-vf", f"fps={fps},scale={w}:{h},format=gray", "-f", "rawvideo", "-"]
         raw = self._run(cmd).stdout
         return np.frombuffer(raw, np.uint8).reshape(-1, h, w).astype(np.float32)
- 
+
     @staticmethod
     def phash(img):
-        """64-bit perceptual hash of a 32x32 grayscale frame."""
         d = cv2.dct(img)[:8, :8]
         return (d > np.median(d[1:])).ravel()
- 
+
     # ----------------------------------------------------- step 1: coarse scan
     def distance_matrix(self):
-        """Hamming distance between the hashes of every pair of sampled frames."""
         self._log("Sampling frames...")
         frames = self.grab_frames(0, 1e9, self.fps, 32, 32)
         n = len(frames)
         self._log(f"  {n} frames at {self.fps} fps ({n / self.fps:.1f}s)")
+
         hashes = np.stack([self.phash(f) for f in frames])
-        flat = frames.reshape(n, -1).std(axis=1) < 8        # black / blank frames
-        dist = (hashes[:, None, :] != hashes[None, :, :]).sum(2)
+        flat = frames.reshape(n, -1).std(axis=1) < 8
+        del frames  # free ~15 MB before building the n×n matrix
+
+        # Hamming distance via matmul: dist[i,j] = sum(h[i]) + sum(h[j]) - 2*dot(h[i],h[j])
+        h = hashes.astype(np.int8)
+        sums = h.sum(axis=1)
+        matches = h @ h.T
+        dist = sums[:, None] + sums[None, :] - 2 * matches
         return dist, flat
- 
+
     def diagonal_runs(self, match):
-        """Runs of consecutive matches along each diagonal: [[offset, start, end], ...]."""
         n = len(match)
         gap = int(self.min_gap * self.fps)
         runs = []
@@ -138,31 +138,29 @@ class VideoDeduper:
                     i += 1
         runs.sort()
         merged = []
-        for off, s, e in runs:                               # bridge tiny gaps
+        for off, s, e in runs:
             if merged and merged[-1][0] == off and s - merged[-1][2] <= 2:
                 merged[-1][2] = e
             else:
                 merged.append([off, s, e])
         return merged
- 
+
     def find_candidates(self):
-        """Coarse candidates as Repeat objects (times are approximate)."""
         dist, flat = self.distance_matrix()
         match = (dist <= self.max_dist) & ~flat[:, None] & ~flat[None, :]
         min_len = int(self.min_sec * self.fps)
- 
+
         cands = []
         for off, s, e in self.diagonal_runs(match):
             if e - s < min_len:
                 continue
-            if (e - s) > off + int(0.75 * self.fps):         # overlaps itself: static shot
+            if (e - s) > off + int(0.75 * self.fps):
                 continue
             cands.append(Repeat(s / self.fps, e / self.fps, off / self.fps))
         return self._unique(cands)
- 
+
     @staticmethod
     def _unique(cands):
-        """Keep the longest candidate of each cluster of overlapping ones."""
         ov = lambda a, b, c, d: max(0.0, min(b, d) - max(a, c))
         cands = sorted(cands, key=lambda c: -c.length)
         chosen = []
@@ -173,24 +171,23 @@ class VideoDeduper:
             if not dup:
                 chosen.append(c)
         return sorted(chosen, key=lambda c: c.start)
- 
+
     # ----------------------------------------------------- step 2: refinement
     def refine(self, cand, fps=15):
-        """Exact start/end/offset for a candidate, or None if it doesn't hold up."""
         w, h = 64, 36
         ta0, ta1 = max(0.0, cand.start - 2), min(self.total, cand.end + 2)
         tb0 = max(0.0, cand.second_start - 3)
         tb1 = min(self.total, cand.second_end + 3)
         fa = self.grab_frames(ta0, ta1 - ta0, fps, w, h)
         fb = self.grab_frames(tb0, tb1 - tb0, fps, w, h)
- 
-        margin = min(1.0, 0.2 * cand.length)      # shrink the comparison window; short repeats need a small margin
+
+        margin = min(1.0, 0.2 * cand.length)
         core0 = int((cand.start + margin - ta0) * fps)
         core1 = int((cand.end - margin - ta0) * fps)
         if core1 <= core0:
             return None
         core = fa[core0:core1]
- 
+
         best = None
         for lag in np.arange(cand.offset - 1.0, cand.offset + 1.0 + 1e-9, 1.0 / fps):
             j0 = int(round((ta0 + core0 / fps + lag - tb0) * fps))
@@ -202,16 +199,17 @@ class VideoDeduper:
         if best is None:
             return None
         err, lag = best
- 
+
         thresh = max(6.0, err * 2.5)
-        good = []
+        good = np.zeros(len(fa), dtype=bool)
         for i in range(len(fa)):
             j = int(round((ta0 + i / fps + lag - tb0) * fps))
-            good.append(0 <= j < len(fb) and np.abs(fa[i] - fb[j]).mean() < thresh)
+            if 0 <= j < len(fb) and np.abs(fa[i] - fb[j]).mean() < thresh:
+                good[i] = True
         idx = np.nonzero(good)[0]
         if len(idx) == 0:
             return None
- 
+
         runs, st, pr = [], idx[0], idx[0]
         for i in idx[1:]:
             if i - pr > 3:
@@ -221,21 +219,17 @@ class VideoDeduper:
         runs.append((st, pr))
         st, en = max(runs, key=lambda r: r[1] - r[0])
         return Repeat(ta0 + st / fps, ta0 + (en + 1) / fps, float(lag), float(err))
- 
+
     def is_valid(self, rep):
-        """Reject short repeats, self-overlapping (static) shots and weak matches."""
         if rep.length < self.min_sec - 1:
             return False
         if rep.diff > self.max_diff:
             return False
         if rep.length > rep.offset + 0.75:
-            # A run longer than its own offset is either a static shot or a loop of 3+
-            # copies. Accept it only when the match is very tight and the period is not tiny.
             return rep.offset >= 2.0 and rep.diff <= 0.4 * self.max_diff
         return True
- 
+
     def detect(self):
-        """Full detection: coarse scan, then refine and validate each candidate."""
         cands = self.find_candidates()
         self._log(f"\n{len(cands)} candidate repeat(s) found")
         repeats = []
@@ -249,17 +243,16 @@ class VideoDeduper:
                 self._log(f"  {r}")
                 repeats.append(r)
         return repeats
- 
+
     # ------------------------------------------------------------ step 3: cut
     def plan_removals(self, repeats):
-        """Time ranges to delete so that only one copy of each repeat remains."""
         removals = []
         for r in repeats:
             if self.keep == "last":
                 if r.end - r.second_start > 0.75:
-                    end = r.end                      # loop of 3+ copies: the whole first run goes
+                    end = r.end
                 elif r.end > r.second_start - 1.0:
-                    end = r.second_start             # back-to-back copies: remove exactly one copy
+                    end = r.second_start
                 else:
                     end = r.end
                 removals.append((r.start, end))
@@ -273,9 +266,8 @@ class VideoDeduper:
             else:
                 merged.append([s, e])
         return [tuple(m) for m in merged]
- 
+
     def keep_ranges(self, removals):
-        """Complement of the removals: the ranges that stay in the video."""
         keeps, pos = [], 0.0
         for s, e in removals:
             if s - pos > 0.05:
@@ -284,10 +276,8 @@ class VideoDeduper:
         if self.total - pos > 0.05:
             keeps.append((pos, self.total))
         return keeps
- 
+
     def build_ffmpeg_command(self, removals, output, video_filter=None, extra_args=()):
-        """video_filter: optional filter chain applied to the cut video (e.g. drawtext);
-        extra_args: extra ffmpeg output options (e.g. ["-movflags", "+faststart"])."""
         keeps = self.keep_ranges(removals)
         audio = self.has_audio
         parts = []
@@ -306,14 +296,12 @@ class VideoDeduper:
         cmd += ["-c:v", "libx264", "-crf", str(self.crf), "-preset", self.preset,
                 *extra_args, output]
         return cmd
- 
+
     def cut(self, removals, output, video_filter=None, extra_args=()):
-        """Write `output` without the removed ranges. With no removals it still
-        re-encodes, which is how a video_filter gets applied to the whole video."""
         self._log("Cutting and encoding (this can take a while)...")
         subprocess.run(self.build_ffmpeg_command(removals, output, video_filter, extra_args),
                        check=True)
- 
+
     # ---------------------------------------------------------------- driver
     def run(self, output=None, dry_run=False):
         output = output or os.path.splitext(self.path)[0] + "_deduped.mp4"

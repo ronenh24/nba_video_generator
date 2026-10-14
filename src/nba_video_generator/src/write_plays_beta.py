@@ -136,7 +136,8 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
                 f"drawtext=textfile='{safe}':enable='gte(t,{t0:.3f})*lt(t,{t1:.3f})'"
                 f":x=(w-text_w)/2:y=5:fontsize=18:fontcolor=white"
             )
-        draw.append("drawbox=x=1070:y=0:w=210:h=40:color=black@1:t=fill")
+        draw.append("drawbox=x=1070:y=0:w=210:h=40:color=purple@1:t=fill")
+        draw.append(f"drawtext=text='youtube.com/@NBAFullPlayHighlights':x=1070+(210-text_w)/2:y=(40-text_h)/2:fontsize=12:fontcolor=white")
 
         deduper.cut(removals, output_path, video_filter=",".join(draw),
                     extra_args=["-movflags", "+faststart"])
