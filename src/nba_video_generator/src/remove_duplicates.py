@@ -38,7 +38,7 @@ class Repeat:
 
 class VideoDeduper:
     def __init__(self, path: str, ffmpeg_path: str, keep="last", fps=4, max_dist=10, min_sec=1.5,
-                 min_gap=1.5, max_diff=6, crf=10, preset="veryfast", verbose=True, ffprobe_path=None):
+                 min_gap=1.5, max_diff=10, crf=10, preset="veryfast", verbose=True, ffprobe_path=None):
         if not os.path.exists(path):
             raise FileNotFoundError(path)
         if keep not in ("first", "last"):
@@ -244,7 +244,7 @@ class VideoDeduper:
             if r is None:
                 self._log(f"  {c.start:.1f}-{c.end:.1f}s: could not verify, skipped")
             elif not self.is_valid(r):
-                self._log(f"  {r.start:.1f}-{r.end:.1f}s: static shot or weak match, skipped")
+                self._log(f"  {r.start:.1f}-{r.end:.1f}s (diff {r.diff:.1f}): static shot or weak match, skipped")
             else:
                 self._log(f"  {r}")
                 repeats.append(r)

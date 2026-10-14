@@ -86,7 +86,7 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
     concat_inputs = "".join(f"[{i}:v][{i}:a]" for i in range(n))
 
     output_path = title + ".mp4"
-    raw_path = title + "_raw.mkv"
+    raw_path = title + "_raw.mp4"
     caption_files = []
 
     try:
