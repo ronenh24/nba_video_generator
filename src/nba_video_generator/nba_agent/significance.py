@@ -101,10 +101,10 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
     if not candidates:
         return []
 
-    candidates = sorted(candidates, key=lambda p: int(p["PTS"]), reverse=True)
+    candidates = sorted(candidates, key=lambda p: int(p["PTS"]))
 
     lines = [
-        f"- ID {i}: {c['REASON']}"
+        f"- ID {i}: {c['REASON'].split('+/-')[0]}"
         for i, c in enumerate(candidates)
     ]
 
@@ -154,6 +154,8 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
 
             if chunk.get("done"):
                 break
+
+        print(content)
 
         data = json.loads(content)
         evaluations = data["evaluations"]

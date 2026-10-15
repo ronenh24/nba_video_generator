@@ -5,7 +5,7 @@ import os
 # Requires a local Ollama server (https://ollama.com) with a model pulled,
 # e.g.:  ollama pull gemma3:4b
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:4b")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:latest")
 
 # --- Paths ---
 # Tracks which (player, team) pairs already had a video made for a given
@@ -27,8 +27,8 @@ THRESHOLDS = {
     "PTS": 20,
     "REB": 10,
     "AST": 5,
-    "STL": 3,
-    "BLK": 3,
+    "STL": 2,
+    "BLK": 2,
     "3PM": 5,
 }
 TRIPLE_DOUBLE_CATS = ["PTS", "REB", "AST", "STL", "BLK"]
@@ -107,7 +107,8 @@ system_prompt = (
     "<FTM>-<FTA> Free Throws), <REB> Rebounds "
     "(<OREB> Offensive Rebounds, <DREB> Defensive Rebounds), "
     "<AST> Assists (<TO> Turnovers), <STL> Steals, "
-    "<BLK> Blocks, <PF> Fouls, +/- <PLUS_MINUS>\n\n"
+    "<BLK> Blocks, <PF> Fouls\n\n"
+    # ", +/- <PLUS_MINUS>\n\n"
 
     "FIELD DEFINITIONS\n"
     "- ID: Candidate identifier matching the input.\n"
@@ -119,8 +120,8 @@ system_prompt = (
     "- REB: Total rebounds; OREB: Offensive rebounds; "
     "DREB: Defensive rebounds.\n"
     "- AST: Assists; TO: Turnovers.\n"
-    "- STL: Steals; BLK: Blocks; PF: Personal fouls.\n"
-    "- +/-: Point differential while the player was on court.\n\n"
+    "- STL: Steals; BLK: Blocks; PF: Personal fouls.\n\n"
+    # "- +/-: Point differential while the player was on court.\n\n"
 
     "EVALUATION STANDARDS\n"
     "- Use only supplied numbers; never infer identity, opponent, final "
@@ -132,8 +133,8 @@ system_prompt = (
     "genuinely memorable NBA performance, never against other candidates. "
     "Rejecting all is valid.\n"
     "- Assess the whole line. Poor efficiency, excessive turnovers, and "
-    "foul trouble weigh against a performance; plus/minus is supporting "
-    "evidence only.\n"
+    "foul trouble weigh against a performance.\n"
+    #"+/- is supporting evidence only.\n"
     "- A category counts only when clearly impressive on its own; never "
     "pad strengths.\n"
     "- Be conservative: a good game is not necessarily highlight-worthy. "
@@ -158,8 +159,8 @@ system_prompt = (
     "qualify even with zero turnovers.\n"
     "- 'defense': Meaningful steals and/or blocks, weighed against fouls; "
     "one unremarkable defensive stat does not count.\n"
-    "- 'impact': Exceptional production relative to minutes and "
-    "plus/minus; plus/minus alone is insufficient.\n"
+    "- 'impact': Exceptional production relative to minutes.\n"
+    # "and +/-; +/- alone is insufficient.\n"
     "Use [] if none stand out.\n"
     "4. 'rethink': 2-3 sentences giving a genuine critical second "
     "assessment: check whether each strength is clearly supported, "
