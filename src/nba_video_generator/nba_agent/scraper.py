@@ -141,7 +141,7 @@ def get_boxscore_urls_for_date(driver, date: str) -> list[str]:
                 seen.add(url)
                 urls.append(url)
 
-    return urls
+    return urls[::-1]
 
 
 @_retry_scrape("parsing box score", default_factory=dict)
