@@ -5,7 +5,7 @@ import os
 # Requires a local Ollama server (https://ollama.com) with a model pulled,
 # e.g.:  ollama pull gemma3:4b
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:latest")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:4b")
 
 # --- Paths ---
 # Tracks which (player, team) pairs already had a video made for a given
@@ -27,8 +27,8 @@ THRESHOLDS = {
     "PTS": 20,
     "REB": 10,
     "AST": 5,
-    "STL": 2,
-    "BLK": 2,
+    "STL": 3,
+    "BLK": 3,
     "3PM": 5,
 }
 TRIPLE_DOUBLE_CATS = ["PTS", "REB", "AST", "STL", "BLK"]
