@@ -155,8 +155,6 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
             if chunk.get("done"):
                 break
 
-        print(content)
-
         data = json.loads(content)
         evaluations = data["evaluations"]
 

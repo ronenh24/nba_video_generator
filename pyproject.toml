@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nba-video-generator"
-version = "6.0.17"
+version = "7.0.1"
 authors = [
   { name="Ronen Huang", email="ronenhuang24@gmail.com" },
 ]
@@ -12,18 +12,21 @@ description = "Generates video highlights for an NBA player."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "moviepy",
-    "selenium",
-    "Unidecode",
-    "pyautogui",
     "av",
-    "pyperclip",
     "beautifulsoup4",
+    "google-api-python-client",
+    "google-auth-oauthlib",
+    "httplib2",
+    "moviepy",
+    "numpy",
+    "opencv-python",
+    "opencv-python-headless",
+    "Pillow",
+    "protobuf",
     "requests",
     "schedule",
-    "pillow",
-    "opencv-python",
-    "numpy",
+    "selenium",
+    "Unidecode",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

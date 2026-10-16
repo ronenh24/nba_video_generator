@@ -89,8 +89,8 @@ A video of the process is provided below.
 
 [https://www.youtube.com/watch?v=84GDSAL5CeE](https://www.youtube.com/watch?v=-1npjVtfezU)
 
-## Automatically Make Videos With Agent - **NEW**
-Makes videos of the LLM determined best player performances of specified date.
+## Automatically Make Videos With Agent
+Makes videos of the LLM determined best player performances of specified date (default today).
 
 ```python
 from nba_video_generator.run_agent import nba_agent
@@ -111,3 +111,16 @@ nba_agent(date, ffmpeg_path)
 A video of the process is provided below.
 
 [https://www.youtube.com/watch?v=IC8SrrvS4xE&feature=youtu.be](https://www.youtube.com/watch?v=IC8SrrvS4xE&feature=youtu.be)
+
+## Automatically Make Game Top Plays Shorts - **NEW**
+Makes shorts of the top 4 plays from each of specified date (default today).
+
+```python
+from nba_video_generator.nba_shorts import make_shorts_for_date
+
+date = "2025-12-25"
+
+ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe"
+
+make_shorts_for_date(date, ffmpeg_path)
+```
