@@ -9,7 +9,7 @@ class Config:
     player: str = ""              # only plays whose description contains this text
     out: str = "."                # root folder for individual clips
     compiled_dir: str = "."       # where compiled videos are saved
-    headless: bool = False        # headless Chrome (the NBA player often refuses it)
+    headless: bool = True         # headless Chrome (the NBA player often refuses it)
     retries: int = 3              # download attempts per clip
     dry_run: bool = False         # pick plays only, download nothing
     title: str = ""               # override the video title (single game)

@@ -11,11 +11,12 @@ from .browser import download_plays, open_browser, safe_name
 from .config import Config
 from .games import discover_games
 from .ids import event_url, game_type, get_game_id, parse_date, season_from_game_id
-from .playbyplay import (MONTH_RE, get_game_date, get_game_title, get_pbp,
-                         get_pbp_browser)
+from .playbyplay import MONTH_RE, get_game_date, get_game_title, get_pbp_browser
 from .processed import is_processed, load_processed, mark_processed
 from .scoring import Play, pick_plays
 from .video import compile_clips, need_ffmpeg, to_vertical
+
+from nba_video_generator.src.remove_duplicates import VideoDeduper
 
 
 @dataclass
@@ -93,14 +94,19 @@ def process_game(driver, gid: str, cfg: Config, game_date: str = "",
 
     dest_dir = Path(cfg.compiled_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
-    dst = dest_dir / f"{safe_name(video_title, 80)}.mp4"
+    dst = dest_dir / f"{safe_name(video_title, 80)}_raw.mp4"
     print("Compiling ...")
     compile_clips(result.clips, dst, cfg.ffmpeg_path, video_title)
-    print(f"Compilation: {dst}")
-    result.compiled = dst
+    dst_final = dest_dir / f"{safe_name(video_title, 80)}.mp4"
+    dedupe = VideoDeduper(dst, cfg.ffmpeg_path)
+    dedupe.run(dst_final)
+    if os.path.exists(dst):
+        os.replace(dst, dst_final)
+    print(f"Compilation: {dst_final}")
+    result.compiled = dst_final
 
     # Only a finished video counts as processed.
-    mark_processed(cfg.processed_file, gid, video_title, dst)
+    mark_processed(cfg.processed_file, gid, video_title, dst_final)
     print(f"Recorded {gid} in {cfg.processed_file}")
     shutil.rmtree(out_dir)
 

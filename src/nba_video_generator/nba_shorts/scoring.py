@@ -38,19 +38,25 @@ def fmt_clock(iso_clock: str) -> str:
 
 
 # ============================================================ scoring
-def score_play(a: dict, prev_margin: int):
-    """Return (score, reasons). Higher = better short material. Tune freely."""
+def score_play(a: dict, prev_margin: int, prev_diff=None):
+    """Return (score, reasons). Higher = better short material. Tune freely.
+
+    prev_diff = home minus away score *before* this play (used to spot go-ahead /
+    game-tying baskets).
+    """
     desc = (a.get("description") or "").lower()
     atype = (a.get("actionType") or "").lower()
     sub = (a.get("subType") or "").lower()
     made = (a.get("shotResult") or "").lower() == "made"
+    is_fg = bool(a.get("isFieldGoal")) or atype in ("2pt", "3pt")
     period = a.get("period", 1)
     secs = clock_seconds(a.get("clock", ""))
 
     try:
-        margin = abs(int(a["scoreHome"]) - int(a["scoreAway"]))
+        diff = int(a["scoreHome"]) - int(a["scoreAway"])
+        margin = abs(diff)
     except (KeyError, ValueError, TypeError):
-        margin = prev_margin
+        diff, margin = None, prev_margin
 
     s, why = 0.0, []
 
@@ -74,14 +80,28 @@ def score_play(a: dict, prev_margin: int):
     if made and any(k in desc for k in ("fadeaway", "bank", "reverse", "step back",
                                         "turnaround", "hook")):
         s += 1.5; why.append("tough shot")
+    if made and is_fg and ("dunk" not in desc) and ("tip" in desc or "putback" in desc):
+        s += 1.5; why.append("tip-in")
+
+    # Game-deciding baskets count even when the shot itself is plain (a layup, a tip-in).
+    if made and is_fg and period >= 4 and secs <= 30 and diff is not None and prev_diff is not None:
+        if prev_diff != 0 and diff != 0 and (prev_diff > 0) != (diff > 0):
+            s += 6; why.append("go-ahead")
+        elif diff == 0 and prev_diff != 0:
+            s += 5; why.append("game-tying")
+
+    # Beating the clock: a big bonus in the final period / OT, a small one at the end of a quarter.
+    if made and is_fg and secs <= 3:
+        if period >= 4:
+            s += 6; why.append("buzzer-beater")
+        else:
+            s += 2.5; why.append("end of quarter")
 
     if s > 0:  # situational multipliers only for plays already interesting
         if period >= 4 and secs <= 120 and margin <= 5:
             s *= 1.8; why.append("clutch")
         elif period >= 4 and secs <= 300 and margin <= 8:
             s *= 1.3
-        if made and secs <= 3 and a.get("isFieldGoal"):
-            s += 6; why.append("buzzer-beater")
         if period > 4:
             s *= 1.3; why.append("OT")
     return s, why
@@ -89,11 +109,12 @@ def score_play(a: dict, prev_margin: int):
 
 def pick_plays(actions: list, top: int = 8, min_score: float = 3.0, player: str = "") -> list:
     """Best `top` plays scoring >= min_score, returned in game order."""
-    scored, margin = [], 99
+    scored, margin, prev_diff = [], 99, None
     for a in actions:
-        s, why = score_play(a, margin)
+        s, why = score_play(a, margin, prev_diff)
         try:
-            margin = abs(int(a["scoreHome"]) - int(a["scoreAway"]))
+            diff = int(a["scoreHome"]) - int(a["scoreAway"])
+            margin, prev_diff = abs(diff), diff
         except (KeyError, ValueError, TypeError):
             pass
         if player and player.lower() not in (a.get("description") or "").lower():
