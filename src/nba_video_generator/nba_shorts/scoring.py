@@ -73,7 +73,7 @@ def score_play(a: dict, prev_margin: int, prev_diff=None):
     if made and "3pt" in desc:
         s += 3; why.append("three")
         try:
-            if float(a.get("shotDistance") or 0) >= 28:
+            if float(a.get("shotDistance") or 0) >= 30:
                 s += 2; why.append("deep")
         except (TypeError, ValueError):
             pass
