@@ -99,11 +99,11 @@ def score_play(a: dict, prev_margin: int, prev_diff=None):
 
     if s > 0:  # situational multipliers only for plays already interesting
         if period >= 4 and secs <= 120 and margin <= 5:
-            s *= 1.8; why.append("clutch")
+            s *= 1.5; why.append("clutch")
         elif period >= 4 and secs <= 300 and margin <= 8:
-            s *= 1.3
+            s *= 1.2
         if period > 4:
-            s *= 1.3; why.append("OT")
+            s *= 1.2; why.append("OT")
     return s, why
 
 
