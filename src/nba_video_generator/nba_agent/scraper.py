@@ -157,7 +157,12 @@ def parse_boxscore(driver, url: str) -> dict[str, list[dict]]:
     soup = BeautifulSoup(driver.page_source, "html.parser")
     teams: dict[str, list[dict]] = {}
 
-    for block in soup.select('section[class*="GameBoxscore_gbTableSection"]'):
+    try:
+        sections = soup.select('section[class*="GameBoxscore_gbTableSection"]')
+    except:
+        sections = soup.select('section[class*="GameBoxscoreLive_gbHeader"]')
+
+    for block in sections:
         header = block.select_one("h2")
         table = block.select_one("table")
         if not header or not table:

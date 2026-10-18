@@ -2,9 +2,8 @@
 import json
 import requests
 import time
-import random
 
-from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN, SCHEMA, system_prompt
+from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN, SCHEMA, SYSTEM_PROMPT
 
 
 def _num(value, default: float = 0.0) -> float:
@@ -45,15 +44,11 @@ def rule_based_candidates(team_name: str, players: list[dict], threshold: bool =
 
             double_digit_cats = sum(1 for v in (pts, reb, ast, stl, blk) if v >= TRIPLE_DOUBLE_MIN)
 
-            hit_threshold = (
-                pts >= THRESHOLDS["PTS"]
-                or reb >= THRESHOLDS["REB"]
-                or ast >= THRESHOLDS["AST"]
-                or stl >= THRESHOLDS["STL"]
-                or blk >= THRESHOLDS["BLK"]
-                or tpm >= THRESHOLDS["3PM"]
-                or double_digit_cats >= 3
-            )
+
+            hit_threshold = (int(pts >= THRESHOLDS["PTS"]) + int(reb >= THRESHOLDS["REB"]) +\
+                int(ast >= THRESHOLDS["AST"]) + int(stl >= THRESHOLDS["STL"]) +\
+                int(blk >= THRESHOLDS["BLK"])) >= 2 or tpm >= THRESHOLDS["3PM"] or double_digit_cats >= 3 or\
+                pts >= 30 or reb >= 15 or ast >= 10 or stl >= 4 or blk >= 4
 
             if hit_threshold:
                 candidates.append(
@@ -104,76 +99,69 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
     candidates = sorted(candidates, key=lambda p: int(p["PTS"]))
 
     lines = [
-        f"- ID {i}: {c['REASON'].split('+/-')[0]}"
-        for i, c in enumerate(candidates)
+        f"- ID {i}: {r}"
+        for i, r in enumerate(get_stats_dictionary(candidates))
     ]
 
-    user_prompt = (
-        f"CANDIDATES ({len(candidates)} total, IDs 0 to {len(candidates) - 1})\n"
-        + "\n".join(lines)
-        + "\n\nEvaluate every candidate above and return the JSON object."
-    )
+    keep_ids = set()
 
-    resp = None
-    for attempt in range(5):
+    for line in lines:
+        user_prompt = (
+            f"{line} \n\nEvaluate the candidate above and return the JSON object.\n"
+        )
+
         try:
             resp = requests.post(
                 f"{OLLAMA_HOST}/api/chat",
                 json={
                     "model": OLLAMA_MODEL,
                     "messages": [
-                        {"role": "system", "content": system_prompt},
+                        {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_prompt},
                     ],
+                    "stream": False,
                     "format": SCHEMA,
-                    "stream": True,
-                    "think": False,
-                    "keep_alive": -1,
+                    "keep_alive": "30m",
                     "options": {"temperature": 0.2, "num_ctx": 10000}
                 },
-                timeout=600,
-                stream=True,
+                timeout=240,
             )
-            break
-        except requests.RequestException:
-            time.sleep(2 * (attempt + 1))
 
-    if resp is None:
-        return candidates
+            resp.raise_for_status()
 
-    resp.raise_for_status()
+            result = resp.json()
+            output = result["message"]["content"]
 
-    content = ""
-    try:
-        for line in resp.iter_lines(decode_unicode=True):
-            if not line:
-                continue
+            data = json.loads(output)
+            evaluation = data["evaluation"]
 
-            chunk = json.loads(line)
-            content += chunk.get("message", {}).get("content", "")
-
-            if chunk.get("done"):
-                break
-
-        data = json.loads(content)
-        evaluations = data["evaluations"]
-
-        if not isinstance(evaluations, list) or len(evaluations) != len(candidates):
-            return candidates
-
-        keep_ids = set()
-        for e in evaluations:
-            i = e["id"]
-            if type(i) is not int or i < 0 or i >= len(candidates):
-                return candidates
-            if e.get("keep") is True:
-                keep_ids.add(i)
-
-    except (json.JSONDecodeError, KeyError, TypeError):
-        return candidates
+            if evaluation.get("keep") is True:
+                keep_ids.add(evaluation.get("id"))
+        except:
+            pass
 
     return [
         candidate
         for i, candidate in enumerate(candidates)
         if i in keep_ids
     ]
+
+
+def get_stats_dictionary(candidates: list[dict]):
+    stats = []
+    for p in candidates:
+        stats.append(
+            json.dumps(
+                {
+                    "Minutes": p["MIN"], "Points": p["PTS"], "Field Goals Made": p["FGM"],
+                    "Field Goals Attempted": p["FGA"], "3 Point Field Goals Made": p["3PM"],
+                    "3 Point Field Goals Attempted": p["3PA"], "Free Throws Made": p["FTM"],
+                    "Free Throws Attempted": p["FTA"], "Rebounds": p["REB"],
+                    "Offensive Rebounds": p["OREB"], "Defensive Rebounds": p["DREB"],
+                    "Assists": p["AST"], "Turnovers": p["TO"], "Steals": p["STL"],
+                    "Blocks": p["BLK"], "Fouls": p["PF"]
+                },
+                indent=4
+            )
+        )
+    return stats
