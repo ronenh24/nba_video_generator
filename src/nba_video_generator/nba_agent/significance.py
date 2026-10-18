@@ -1,7 +1,7 @@
 """Rule-based pre-filter + Ollama-based judgment of "must-see" performances."""
 import json
 import requests
-import time
+from tqdm import tqdm
 
 from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN, SCHEMA, SYSTEM_PROMPT
 
@@ -105,7 +105,7 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
 
     keep_ids = set()
 
-    for line in lines:
+    for line in tqdm(lines):
         user_prompt = (
             f"{line} \n\nEvaluate the candidate above and return the JSON object.\n"
         )
