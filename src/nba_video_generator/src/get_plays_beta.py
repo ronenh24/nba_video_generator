@@ -84,6 +84,8 @@ def load_actions(driver, gid: str) -> dict:
 
     lookup = {}
     for a in actions:
+        if "description" not in a:
+            a["description"] = ""
         k = _key(a["period"], clock_to_sec(a["clock"]), a["description"])
         lookup.setdefault(k, a["actionNumber"])  # first one wins on duplicates
     return lookup
