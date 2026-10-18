@@ -193,7 +193,7 @@ def _find_foul_url(rows, i, play_time, gid, lookup, quarter):
     return None
 
 
-def combine_events(events, max_gap=-1):
+def combine_events(events, max_gap=2):
     combined = []
     current = None
 
