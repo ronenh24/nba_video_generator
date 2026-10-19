@@ -95,7 +95,7 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
             [ffmpeg_path, *inputs,
              "-filter_complex", f"{concat_inputs}concat=n={n}:v=1:a=1[v][a]",
              "-map", "[v]", "-map", "[a]",
-             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "10",
+             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
              "-c:a", "pcm_s16le", "-y", raw_path],
             check=True,
         )
