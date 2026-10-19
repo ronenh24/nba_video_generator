@@ -48,11 +48,15 @@ def abbr_for(team_full_name: str) -> str:
     for full, code in TEAM_ABBR.items():
         if name.lower() == full.lower():
             return code
-    raise KeyError(f"Unknown team name: {team_full_name!r} — add it to TEAM_ABBR.")
+    raise KeyError(
+        f"Unknown team name: {team_full_name!r} — add it to TEAM_ABBR."
+    )
 
 
 def team_for(abbr: str) -> str:
     abbr = abbr.strip().lower()
     if abbr in ABBR_TEAM:
         return ABBR_TEAM[abbr]
-    raise KeyError(f"Unknown team abbreviation: {abbr!r} — add it to TEAM_ABBR.")
+    raise KeyError(
+        f"Unknown team abbreviation: {abbr!r} — add it to TEAM_ABBR."
+    )

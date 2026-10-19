@@ -1,3 +1,7 @@
+"""
+Downloads each play.
+"""
+
 import os
 import time
 import base64
@@ -8,12 +12,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
-def download_plays(
-    driver: webdriver,
-    base_name: str,
-    result: list,
-    max_retries: int = 3,
-):
+def download_plays(driver: webdriver, base_name: str,
+                   result: list, max_retries: int = 3):
+    """Downloads each play."""
     i = 0
     player_urls = []
 

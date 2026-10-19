@@ -16,22 +16,26 @@ def _overlap(a0, a1, b0, b1):
 
 
 def _remap_clips(starts, durations, removals, min_keep=1.0):
-    """For each clip return (new_start, kept_seconds) after the removals, or None if
-    less than `min_keep` seconds of the clip survive. Times are relative to the
-    start of this call's video."""
+    """For each clip return (new_start, kept_seconds) after the removals, or
+    None if less than `min_keep` seconds of the clip survive. Times are
+    relative to the start of this call's video."""
     out = []
     for s, d in zip(starts, durations):
         e = s + d
-        removed_before_start = sum(_overlap(rs, re, 0, s) for rs, re in removals)
+        removed_before_start = sum(
+            _overlap(rs, re, 0, s) for rs, re in removals
+        )
         removed_inside = sum(_overlap(rs, re, s, e) for rs, re in removals)
         kept = d - removed_inside
-        out.append((s - removed_before_start, kept) if kept >= min_keep else None)
+        out.append(
+            (s - removed_before_start, kept) if kept >= min_keep else None
+        )
     return out
 
 
 def _combine_targets(clips, starts, durations, repeats, keep):
-    """Map the index of each fully removed clip to the index of the surviving clip
-    that holds the kept copy of the same footage."""
+    """Map the index of each fully removed clip to the index of the surviving
+    clip that holds the kept copy of the same footage."""
     def locate(t):
         for i, (s, d) in enumerate(zip(starts, durations)):
             if s <= t < s + d:
@@ -64,10 +68,12 @@ def _combine_targets(clips, starts, durations, repeats, keep):
     return targets
 
 
-def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], ffmpeg_path: str, preset: str,
-                time_secs: float = 0, desc_txt=None):
+def write_plays(
+        title: str, base_name: str, player_urls: list[tuple[str, str]],
+        ffmpeg_path: str, preset: str, time_secs: float = 0, desc_txt=None
+):
     if desc_txt is None:
-        desc_txt = open(title + " description.txt", "w+")
+        desc_txt = open(title + " description.txt", "w+", encoding='utf-8')
 
     os.makedirs(base_name, exist_ok=True)
 
@@ -90,7 +96,8 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
     caption_files = []
 
     try:
-        # ---- pass 1: plain concat, no captions (near-lossless intermediate for detection) ----
+        # ---- pass 1: plain concat, no captions
+        # (near-lossless intermediate for detection) ----
         subprocess.run(
             [ffmpeg_path, *inputs,
              "-filter_complex", f"{concat_inputs}concat=n={n}:v=1:a=1[v][a]",
@@ -101,18 +108,22 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
         )
 
         # ---- detect repeats ----
-        deduper = VideoDeduper(raw_path, ffmpeg_path, preset=preset, verbose=False)
+        deduper = VideoDeduper(
+            raw_path, ffmpeg_path, preset=preset, verbose=False
+        )
         repeats = deduper.detect()
         removals = deduper.plan_removals(repeats)
 
         # ---- final clip timeline and descriptions ----
         clips = _remap_clips(starts, durations, removals)
-        targets = _combine_targets(clips, starts, durations, repeats, deduper.keep)
+        targets = _combine_targets(
+            clips, starts, durations, repeats, deduper.keep
+        )
         merged = {}
         for removed, survivor in targets.items():
             merged.setdefault(survivor, []).append(removed)
 
-        entries = []                                   # (text, start, end) in the final video
+        entries = []  # (text, start, end) in the final video
         for idx, clip in enumerate(clips):
             if clip is None:
                 continue
@@ -124,20 +135,28 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
             new_start, kept = clip
             entries.append((" / ".join(parts), new_start, new_start + kept))
 
-        # ---- pass 2: cut repeats and draw the captions on the final timeline ----
+        # ---- pass 2: cut repeats and draw the captions
+        # on the final timeline ----
         draw = []
         for i, (text, t0, t1) in enumerate(entries):
-            fd, caption_path = tempfile.mkstemp(suffix=".txt", prefix=f"caption_{i}_")
+            fd, caption_path = tempfile.mkstemp(
+                suffix=".txt", prefix=f"caption_{i}_"
+            )
             with os.fdopen(fd, "w") as f:
                 f.write(text)
             caption_files.append(caption_path)
             safe = _escape_path_for_filter(os.path.abspath(caption_path))
             draw.append(
-                f"drawtext=textfile='{safe}':enable='gte(t,{t0:.3f})*lt(t,{t1:.3f})'"
+                f"drawtext=textfile='{safe}':"
+                f"enable='gte(t,{t0:.3f})*lt(t,{t1:.3f})'"
                 f":x=(w-text_w)/2:y=5:fontsize=18:fontcolor=white"
             )
         draw.append("drawbox=x=1070:y=0:w=210:h=40:color=purple@1:t=fill")
-        draw.append(f"drawtext=text='youtube.com/@NBAFullPlayHighlights':x=1070+(210-text_w)/2:y=(40-text_h)/2:fontsize=12:fontcolor=white")
+        draw.append(
+            "drawtext=text='youtube.com/@NBAFullPlayHighlights':"
+            "x=1070+(210-text_w)/2:y=(40-text_h)/2:"
+            "fontsize=12:fontcolor=white"
+        )
 
         deduper.cut(removals, output_path, video_filter=",".join(draw),
                     extra_args=["-movflags", "+faststart"])
@@ -150,7 +169,10 @@ def write_plays(title: str, base_name: str, player_urls: list[tuple[str, str]], 
 
     # ---- description file uses the same text and times as the captions ----
     for text, t0, _ in entries:
-        desc_txt.write(time.strftime('%H:%M:%S', time.gmtime(time_secs + t0)) + " - " + text + "\n")
+        desc_txt.write(
+            time.strftime('%H:%M:%S', time.gmtime(time_secs + t0)) +
+            " - " + text + "\n"
+        )
 
     time_secs += sum(durations) - sum(e - s for s, e in removals)
 

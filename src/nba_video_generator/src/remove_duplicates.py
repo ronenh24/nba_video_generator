@@ -33,12 +33,15 @@ class Repeat:
     def __str__(self):
         return (f"{self.start:.2f}-{self.end:.2f}s  ==  "
                 f"{self.second_start:.2f}-{self.second_end:.2f}s   "
-                f"(length {self.length:.1f}s, offset {self.offset:.2f}s, diff {self.diff:.1f})")
+                f"(length {self.length:.1f}s, offset {self.offset:.2f}s, "
+                f"diff {self.diff:.1f})")
 
 
 class VideoDeduper:
-    def __init__(self, path: str, ffmpeg_path: str, keep="last", fps=10, max_dist=10, min_sec=1.5,
-                 min_gap=1.5, max_diff=10, crf=18, preset="veryfast", verbose=True, ffprobe_path=None):
+    def __init__(
+            self, path: str, ffmpeg_path: str, keep="last", fps=30,
+            max_dist=10, min_sec=1.5, min_gap=1.5, max_diff=10, crf=18,
+            preset="veryfast", verbose=True, ffprobe_path=None):
         if not os.path.exists(path):
             raise FileNotFoundError(path)
         if keep not in ("first", "last"):
@@ -63,7 +66,8 @@ class VideoDeduper:
     def _sibling_ffprobe(ffmpeg_path):
         folder, name = os.path.split(ffmpeg_path)
         base, ext = os.path.splitext(name)
-        probe = "ffprobe" if base.lower() == "ffmpeg" else base.replace("ffmpeg", "ffprobe")
+        probe = "ffprobe" if base.lower() == "ffmpeg" \
+            else base.replace("ffmpeg", "ffprobe")
         return os.path.join(folder, probe + ext)
 
     def _log(self, msg=""):
@@ -77,25 +81,38 @@ class VideoDeduper:
     @property
     def total(self):
         if self._total is None:
-            out = self._run([self.ffprobe_path, "-v", "error", "-show_entries", "format=duration",
-                             "-of", "default=nw=1:nk=1", self.path]).stdout
+            out = self._run(
+                [
+                    self.ffprobe_path, "-v", "error", "-show_entries",
+                    "format=duration", "-of", "default=nw=1:nk=1", self.path
+                ]
+            ).stdout
             self._total = float(out.decode().strip())
         return self._total
 
     @property
     def has_audio(self):
         if self._audio is None:
-            out = self._run([self.ffprobe_path, "-v", "error", "-select_streams", "a",
-                             "-show_entries", "stream=index", "-of", "csv=p=0",
-                             self.path]).stdout
+            out = self._run(
+                [
+                    self.ffprobe_path, "-v", "error", "-select_streams", "a",
+                    "-show_entries", "stream=index", "-of", "csv=p=0",
+                    self.path
+                ]
+            ).stdout
             self._audio = bool(out.strip())
         return self._audio
 
     def grab_frames(self, start, length, fps, w, h):
-        cmd = [self.ffmpeg_path, "-v", "error", "-ss", f"{start:.3f}", "-t", f"{length:.3f}",
-               "-i", self.path, "-vf", f"fps={fps},scale={w}:{h},format=gray", "-f", "rawvideo", "-"]
+        cmd = [
+            self.ffmpeg_path, "-v", "error", "-ss", f"{start:.3f}", "-t",
+            f"{length:.3f}", "-i", self.path, "-vf",
+            f"fps={fps},scale={w}:{h},format=gray", "-f", "rawvideo", "-"
+        ]
         raw = self._run(cmd).stdout
-        return np.frombuffer(raw, np.uint8).reshape(-1, h, w).astype(np.float32)
+        return np.frombuffer(
+            raw, np.uint8
+        ).reshape(-1, h, w).astype(np.float32)
 
     @staticmethod
     def phash(img):
@@ -113,7 +130,8 @@ class VideoDeduper:
         flat = frames.reshape(n, -1).std(axis=1) < 8
         del frames  # free ~15 MB before building the n×n matrix
 
-        # Hamming distance via matmul: dist[i,j] = sum(h[i]) + sum(h[j]) - 2*dot(h[i],h[j])
+        # Hamming distance via matmul:
+        # dist[i,j] = sum(h[i]) + sum(h[j]) - 2*dot(h[i],h[j])
         h = hashes.astype(np.int8)
         sums = h.sum(axis=1)
         matches = h @ h.T
@@ -166,14 +184,17 @@ class VideoDeduper:
         chosen = []
         for c in cands:
             dup = any(ov(c.start, c.end, k.start, k.end) > 0.5 * c.length and
-                      ov(c.second_start, c.second_end, k.second_start, k.second_end) > 0.5 * c.length
+                      ov(
+                          c.second_start, c.second_end,
+                          k.second_start, k.second_end
+                        ) > 0.5 * c.length
                       for k in chosen)
             if not dup:
                 chosen.append(c)
         return sorted(chosen, key=lambda c: c.start)
 
     # ----------------------------------------------------- step 2: refinement
-    def refine(self, cand, fps=15):
+    def refine(self, cand, fps=30):
         w, h = 64, 36
         ta0, ta1 = max(0.0, cand.start - 2), min(self.total, cand.end + 2)
         tb0 = max(0.0, cand.second_start - 3)
@@ -189,7 +210,9 @@ class VideoDeduper:
         core = fa[core0:core1]
 
         best = None
-        for lag in np.arange(cand.offset - 1.0, cand.offset + 1.0 + 1e-9, 1.0 / fps):
+        for lag in np.arange(
+            cand.offset - 1.0, cand.offset + 1.0 + 1e-9, 1.0 / fps
+        ):
             j0 = int(round((ta0 + core0 / fps + lag - tb0) * fps))
             if j0 < 0 or j0 + len(core) > len(fb):
                 continue
@@ -218,7 +241,8 @@ class VideoDeduper:
             pr = i
         runs.append((st, pr))
         st, en = max(runs, key=lambda r: r[1] - r[0])
-        return Repeat(ta0 + st / fps, ta0 + (en + 1) / fps, float(lag), float(err))
+        return Repeat(ta0 + st / fps, ta0 + (en + 1) / fps,
+                      float(lag), float(err))
 
     def is_valid(self, rep):
         if rep.length < self.min_sec - 1:
@@ -236,9 +260,14 @@ class VideoDeduper:
         for c in cands:
             r = self.refine(c)
             if r is None:
-                self._log(f"  {c.start:.1f}-{c.end:.1f}s: could not verify, skipped")
+                self._log(
+                    f"  {c.start:.1f}-{c.end:.1f}s: could not verify, skipped"
+                )
             elif not self.is_valid(r):
-                self._log(f"  {r.start:.1f}-{r.end:.1f}s (diff {r.diff:.1f}): static shot or weak match, skipped")
+                self._log(
+                    f"  {r.start:.1f}-{r.end:.1f}s (diff {r.diff:.1f}): "
+                    "static shot or weak match, skipped"
+                )
             else:
                 self._log(f"  {r}")
                 repeats.append(r)
@@ -277,46 +306,68 @@ class VideoDeduper:
             keeps.append((pos, self.total))
         return keeps
 
-    def build_ffmpeg_command(self, removals, output, video_filter=None, extra_args=()):
+    def build_ffmpeg_command(
+            self, removals, output, video_filter=None, extra_args=()
+    ):
         keeps = self.keep_ranges(removals)
         audio = self.has_audio
         parts = []
         for k, (s, e) in enumerate(keeps):
-            parts.append(f"[0:v]trim=start={s:.3f}:end={e:.3f},setpts=PTS-STARTPTS[v{k}]")
+            parts.append(
+                f"[0:v]trim=start={s:.3f}:"
+                f"end={e:.3f},setpts=PTS-STARTPTS[v{k}]"
+            )
             if audio:
-                parts.append(f"[0:a]atrim=start={s:.3f}:end={e:.3f},asetpts=PTS-STARTPTS[a{k}]")
-        inputs = "".join(f"[v{k}][a{k}]" if audio else f"[v{k}]" for k in range(len(keeps)))
+                parts.append(
+                    f"[0:a]atrim=start={s:.3f}:end={e:.3f},"
+                    f"asetpts=PTS-STARTPTS[a{k}]"
+                )
+        inputs = "".join(f"[v{k}][a{k}]" if audio else f"[v{k}]"
+                         for k in range(len(keeps)))
         parts.append(f"{inputs}concat=n={len(keeps)}:v=1:a={1 if audio else 0}"
                      f"[vcat]{'[outa]' if audio else ''}")
         parts.append(f"[vcat]{video_filter or 'null'}[outv]")
-        cmd = [self.ffmpeg_path, "-y", "-i", self.path, "-filter_complex", ";".join(parts),
-               "-map", "[outv]"]
+        cmd = [
+            self.ffmpeg_path, "-y", "-i", self.path,
+            "-filter_complex", ";".join(parts), "-map", "[outv]"
+        ]
         if audio:
             cmd += ["-map", "[outa]", "-c:a", "aac"]
-        cmd += ["-c:v", "libx264", "-crf", str(self.crf), "-preset", self.preset,
-                *extra_args, output]
+        cmd += [
+            "-c:v", "libx264", "-crf", str(self.crf), "-preset",
+            self.preset, *extra_args, output]
         return cmd
 
     def cut(self, removals, output, video_filter=None, extra_args=()):
         self._log("Cutting and encoding (this can take a while)...")
-        subprocess.run(self.build_ffmpeg_command(removals, output, video_filter, extra_args),
-                       check=True)
+        subprocess.run(
+            self.build_ffmpeg_command(
+                removals, output, video_filter, extra_args
+            ), check=True)
 
     # ---------------------------------------------------------------- driver
     def run(self, output=None, dry_run=False):
         output = output or os.path.splitext(self.path)[0] + "_deduped.mp4"
         repeats = self.detect()
         if not repeats:
-            self._log("No duplicated sequences found. Try max_dist=14 or min_sec=3.")
+            self._log(
+                "No duplicated sequences found. Try max_dist=14 or min_sec=3."
+            )
             return None
         removals = self.plan_removals(repeats)
         removed = sum(e - s for s, e in removals)
         self._log(f"\nWill remove (keeping the {self.keep} copy):")
         for s, e in removals:
             self._log(f"  {s:.2f}-{e:.2f}s")
-        self._log(f"Total removed: {removed:.1f}s  ->  new length {self.total - removed:.1f}s")
+        new_length = self.total - removed
+        self._log(
+            f"Total removed: {removed:.1f}s  ->  new length {new_length:.1f}s"
+        )
         if dry_run:
-            self._log("\nDry run: nothing written. Check the ranges by eye before cutting.")
+            self._log(
+                "\nDry run: nothing written. Check the ranges by eye "
+                "before cutting."
+            )
             return removals
         self.cut(removals, output)
         self._log(f"\nDone: {output}")

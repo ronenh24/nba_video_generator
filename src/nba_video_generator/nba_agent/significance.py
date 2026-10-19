@@ -3,7 +3,10 @@ import json
 import requests
 from tqdm import tqdm
 
-from .config import OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN, SCHEMA, SYSTEM_PROMPT
+from .config import (
+    OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN,
+    SCHEMA, SYSTEM_PROMPT
+)
 
 
 def _num(value, default: float = 0.0) -> float:
@@ -18,10 +21,16 @@ def _num(value, default: float = 0.0) -> float:
 def describe(p: dict) -> str:
     """A short, factually-computed (never LLM-generated) reason string."""
     minutes = p["MIN"] + " Minutes"
-    pts = p["PTS"] + " Points (" + p["FGM"] + "-" + p["FGA"] + " Field Goals, " + \
-        p["3PM"] + "-" + p["3PA"] + " 3 Point Field Goals, " + \
-        p["FTM"] + "-" + p["FTA"] + " Free Throws)"
-    rb = p["REB"] + " Rebounds (" + p["OREB"] + " Offensive Rebounds, " + p["DREB"] + " Defensive Rebounds)"
+    pts = (
+        p["PTS"] + " Points (" + p["FGM"] + "-" + p["FGA"]
+        + " Field Goals, " + p["3PM"] + "-" + p["3PA"]
+        + " 3 Point Field Goals, " + p["FTM"] + "-" + p["FTA"]
+        + " Free Throws)"
+    )
+    rb = (
+        p["REB"] + " Rebounds (" + p["OREB"] + " Offensive Rebounds, "
+        + p["DREB"] + " Defensive Rebounds)"
+    )
     ast = p["AST"] + " Assists (" + p["TO"] + " Turnovers)"
     stl = p["STL"] + " Steals"
     blk = p["BLK"] + " Blocks"
@@ -32,23 +41,40 @@ def describe(p: dict) -> str:
     return ", ".join([minutes, pts, rb, ast, stl, blk, pf, pm])
 
 
-def rule_based_candidates(team_name: str, players: list[dict], threshold: bool = True) -> list[dict]:
-    """Players whose raw stat line clears any THRESHOLDS value, or a triple-double.
-    Each candidate gets a REASON computed straight from the numbers — never from
-    the LLM — so the eventual highlight caption can't misstate the box score."""
+def rule_based_candidates(
+        team_name: str, players: list[dict], threshold: bool = True
+) -> list[dict]:
+    """Players whose raw stat line clears any THRESHOLDS value,
+    or a triple-double. Each candidate gets a REASON computed straight
+    from the numbers — never from the LLM — so the eventual highlight
+    caption can't misstate the box score."""
     candidates = []
     for p in players:
         if threshold:
-            pts, reb, ast = _num(p.get("PTS")), _num(p.get("REB")), _num(p.get("AST"))
-            stl, blk, tpm = _num(p.get("STL")), _num(p.get("BLK")), _num(p.get("3PM"))
+            pts, reb, ast = \
+                _num(p.get("PTS")), _num(p.get("REB")), _num(p.get("AST"))
+            stl, blk, tpm = \
+                _num(p.get("STL")), _num(p.get("BLK")), _num(p.get("3PM"))
 
-            double_digit_cats = sum(1 for v in (pts, reb, ast, stl, blk) if v >= TRIPLE_DOUBLE_MIN)
+            double_digit_cats = sum(
+                1 for v in (pts, reb, ast, stl, blk) if v >= TRIPLE_DOUBLE_MIN)
 
-
-            hit_threshold = (int(pts >= THRESHOLDS["PTS"]) + int(reb >= THRESHOLDS["REB"]) +\
-                int(ast >= THRESHOLDS["AST"]) + int(stl >= THRESHOLDS["STL"]) +\
-                int(blk >= THRESHOLDS["BLK"])) >= 2 or tpm >= THRESHOLDS["3PM"] or double_digit_cats >= 3 or\
-                pts >= 30 or reb >= 15 or ast >= 10 or stl >= 4 or blk >= 4
+            hit_threshold = (
+                (
+                    int(pts >= THRESHOLDS["PTS"])
+                    + int(reb >= THRESHOLDS["REB"])
+                    + int(ast >= THRESHOLDS["AST"])
+                    + int(stl >= THRESHOLDS["STL"])
+                    + int(blk >= THRESHOLDS["BLK"])
+                ) >= 2
+                or tpm >= THRESHOLDS["3PM"]
+                or double_digit_cats >= 3
+                or pts >= 30
+                or reb >= 15
+                or ast >= 10
+                or stl >= 4
+                or blk >= 4
+            )
 
             if hit_threshold:
                 candidates.append(
@@ -60,7 +86,9 @@ def rule_based_candidates(team_name: str, players: list[dict], threshold: bool =
                 minutes = minutes[1:]
                 if minutes[0] == ":":
                     minutes = "0" + minutes
-            minutes = int(minutes.split(":")[0]) * 60 + int(minutes.split(":")[1])
+            minutes = int(
+                minutes.split(":")[0]
+            ) * 60 + int(minutes.split(":")[1])
             if minutes >= 15 * 60:
                 candidates.append(
                     {**p, "TEAM": team_name, "REASON": describe(p)}
@@ -107,7 +135,8 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
 
     for line in tqdm(lines):
         user_prompt = (
-            f"{line} \n\nEvaluate the candidate above and return the JSON object.\n"
+            f"{line} \n\nEvaluate the candidate above and return the "
+            "JSON object.\n"
         )
 
         try:
@@ -137,7 +166,7 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
 
             if evaluation.get("keep") is True:
                 keep_ids.add(evaluation.get("id"))
-        except:
+        except Exception:
             pass
 
     return [
@@ -153,12 +182,17 @@ def get_stats_dictionary(candidates: list[dict]):
         stats.append(
             json.dumps(
                 {
-                    "Minutes": p["MIN"], "Points": p["PTS"], "Field Goals Made": p["FGM"],
-                    "Field Goals Attempted": p["FGA"], "3 Point Field Goals Made": p["3PM"],
-                    "3 Point Field Goals Attempted": p["3PA"], "Free Throws Made": p["FTM"],
+                    "Minutes": p["MIN"], "Points": p["PTS"],
+                    "Field Goals Made": p["FGM"],
+                    "Field Goals Attempted": p["FGA"],
+                    "3 Point Field Goals Made": p["3PM"],
+                    "3 Point Field Goals Attempted": p["3PA"],
+                    "Free Throws Made": p["FTM"],
                     "Free Throws Attempted": p["FTA"], "Rebounds": p["REB"],
-                    "Offensive Rebounds": p["OREB"], "Defensive Rebounds": p["DREB"],
-                    "Assists": p["AST"], "Turnovers": p["TO"], "Steals": p["STL"],
+                    "Offensive Rebounds": p["OREB"],
+                    "Defensive Rebounds": p["DREB"],
+                    "Assists": p["AST"], "Turnovers": p["TO"],
+                    "Steals": p["STL"],
                     "Blocks": p["BLK"], "Fouls": p["PF"]
                 },
                 indent=4

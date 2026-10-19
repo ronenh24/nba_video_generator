@@ -1,3 +1,7 @@
+"""
+Makes video for specified players and date(s).
+"""
+
 # Last Name
 # Home Team
 # Team Abbreviation
@@ -13,12 +17,17 @@ from nba_video_generator.src.download_plays_beta import download_plays
 from nba_video_generator.src.write_plays_beta import write_plays
 
 
-base_url = "https://www.nba.com/games?date="
+BASE_URL = "https://www.nba.com/games?date="
+FFMPEG_PATH = (
+    r"C:\Users\ronen\Documents\Projects\nba_video_generator\src"
+    r"\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe"
+)
 
 
-def search(driver: webdriver, last_name: str, date_start: str, date_end: str, team: str,
-           ffmpeg_path: str = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe",
+def search(driver: webdriver, last_name: str, date_start: str, date_end: str,
+           team: str, ffmpeg_path: str = FFMPEG_PATH,
            preset: str = "veryfast", full_name: str | None = None):
+    """Makes video for player and date(s)."""
     if date_end is None:
         date_end = date_start
 
@@ -31,12 +40,14 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
 
     if date_start != date_end:
         f = open("file_list.txt", "w", encoding="utf-8")
-        desc_txt = open(last_name + " " + date_start + " " + date_end + " description.txt", "w", encoding="utf-8")
+        desc_txt = open(
+            last_name + " " + date_start + " " + date_end +
+            " description.txt", "w", encoding="utf-8")
         titles = []
 
     while current_date <= end_date:
         date = current_date.strftime("%Y-%m-%d")
-        data_is_home_team, pbp_url = get_pbp(driver, base_url, date, team)
+        data_is_home_team, pbp_url = get_pbp(driver, BASE_URL, date, team)
 
         if pbp_url is not None:
             title, result = get_plays(
@@ -85,7 +96,8 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
     if date_start != date_end:
         f.close()
 
-        output_path = last_name + " " + date_start + " " + date_end + " Full Play.mp4"
+        output_path = last_name + " " + date_start + " " + date_end + \
+            " Full Play.mp4"
 
         if os.path.exists(output_path):
             os.remove(output_path)
@@ -103,8 +115,12 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str, te
         return title
 
 
-def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list[tuple[str | tuple[str, str], str, str, str]],
-             params: dict = {}):
+def pipeline(
+        name_date_team: list[tuple[str | tuple[str, str], str, str]] |
+        list[tuple[str | tuple[str, str], str, str, str]],
+        params: dict = {}
+):
+    """Makes videos for players and dates(s)."""
 
     for i, row in enumerate(name_date_team):
         if len(row) == 3:
@@ -118,7 +134,13 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
         options.add_argument("--headless=new")
         options.add_argument("--log-level=3")
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+        options.add_argument(
+            (
+                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/140.0.0.0 Safari/537.36"
+            )
+        )
         driver = webdriver.Chrome(service=service, options=options)
         # driver.maximize_window()
         # driver.implicitly_wait(3)
@@ -135,7 +157,7 @@ def pipeline(name_date_team: list[tuple[str | tuple[str, str], str, str]] | list
         params["driver"] = driver
         try:
             titles.append(search(**params))
-        except:
+        except Exception:
             pass
         driver.quit()
 

@@ -1,6 +1,7 @@
 """Team logo as thumbnail background art.
 
-The NBA serves logos as SVG (cdn.nba.com/logos/nba/{team_id}/primary/L/logo.svg),
+The NBA serves logos as SVG
+(cdn.nba.com/logos/nba/{team_id}/primary/L/logo.svg),
 which Pillow can't read. Instead the logo is rendered by the Selenium Chrome
 session you already have open, then turned into a transparent image.
 
@@ -35,7 +36,8 @@ _CACHE: dict[str, bytes] = {}
 
 def logo_url(team_abbr: str) -> str:
     tid = TEAM_IDS.get(team_abbr.lower())
-    return f"https://cdn.nba.com/logos/nba/{tid}/primary/L/logo.svg" if tid else ""
+    return f"https://cdn.nba.com/logos/nba/{tid}/primary/L/logo.svg" if tid\
+        else ""
 
 
 def _matte(on_black_png: bytes, on_white_png: bytes) -> Image.Image:
@@ -47,14 +49,15 @@ def _matte(on_black_png: bytes, on_white_png: bytes) -> Image.Image:
     white = Image.open(io.BytesIO(on_white_png)).convert("RGB")
     r, g, b = ImageChops.subtract(white, black).split()
     diff = ImageChops.lighter(ImageChops.lighter(r, g), b)
-    rgba = black.copy()  # color over black ~ color * alpha; fine for a watermark
+    rgba = black.copy()  # color over black ~ color * alpha
     rgba.putalpha(ImageChops.invert(diff))
     return rgba
 
 
 def fetch_team_logo(driver, team_abbr: str, px: int = 720) -> bytes | None:
     """Render the SVG in a temporary tab and return a transparent PNG (bytes).
-    The main tab (the box-score page used for headshot downloads) is untouched."""
+    The main tab (the box-score page used for headshot downloads)
+    is untouched."""
     url = logo_url(team_abbr)
     if not url:
         print(f"    ! no team id for '{team_abbr}', skipping logo")
@@ -86,7 +89,10 @@ def fetch_team_logo(driver, team_abbr: str, px: int = 720) -> bytes | None:
         _matte(shots[0], shots[1]).save(out, "PNG")
         return out.getvalue()
     except Exception as e:
-        print(f"    ! logo render failed for {team_abbr} ({e.__class__.__name__})")
+        print(
+            f"    ! logo render failed for {team_abbr} "
+            f"({e.__class__.__name__})"
+        )
         return None
     finally:
         try:
@@ -117,7 +123,7 @@ def logo_layer(row: dict, width: int, height: int) -> Image.Image | None:
     except Exception:
         return None
     w = int(logo.width * LOGO_SIZE / logo.height)
-    logo = logo.resize((w, LOGO_SIZE), Image.LANCZOS)
+    logo = logo.resize((w, LOGO_SIZE), Image.Resampling.LANCZOS)
     logo.putalpha(logo.getchannel("A").point(lambda a: int(a * LOGO_OPACITY)))
     layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     layer.paste(logo, (LOGO_CENTER_X - w // 2, (height - LOGO_SIZE) // 2))

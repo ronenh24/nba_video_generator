@@ -41,8 +41,10 @@ fetch(url)
 """
 
 
-HEADLESS_USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                       "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+HEADLESS_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+)
 
 
 def make_driver(headless: bool = False):
@@ -63,7 +65,8 @@ def make_driver(headless: bool = False):
 
 
 def safe_name(text: str, n: int = 45) -> str:
-    """Filename-safe but keeps spaces; only strips characters illegal in filenames."""
+    """Filename-safe but keeps spaces; only strips characters
+    illegal in filenames."""
     t = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", text)
     t = re.sub(r"\s{2,}", " ", t).strip()
     return t[:n].strip(" ._")
@@ -86,30 +89,38 @@ def download_plays(driver, base_name, result: list, max_retries: int = 3):
 
         for attempt in range(1, max_retries + 1):
             try:
-                print(f"Clip {i}: attempt {attempt}/{max_retries}  ({desc_raw})")
+                print(
+                    f"Clip {i}: attempt {attempt}/{max_retries}  ({desc_raw})"
+                )
 
                 # Reload the clip page on every attempt to obtain
                 # a fresh video URL if the previous URL has expired.
                 driver.get(video_url)
 
                 WebDriverWait(driver, 30).until(
-                    lambda d: d.find_element(By.TAG_NAME, "body").text.lower() and True
+                    lambda d: d.find_element(By.TAG_NAME, "body").text.lower()
+                    and True
                 )
 
                 body = driver.find_element(By.TAG_NAME, "body").text.lower()
 
-                if "content unavailable" in body or "no video available" in body:
+                if "content unavailable" in body or\
+                        "no video available" in body:
                     raise RuntimeError("Clip is unavailable")
 
                 if i == 0 and attempt == 1:
                     try:
-                        driver.find_element(By.CSS_SELECTOR,
-                                            'button[aria-label="Close"]').click()
+                        driver.find_element(
+                            By.CSS_SELECTOR,
+                            'button[aria-label="Close"]'
+                        ).click()
                     except Exception:
                         pass
 
                 video = WebDriverWait(driver, 30).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "video.vjs-tech"))
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "video.vjs-tech")
+                    )
                 )
 
                 driver.execute_script("arguments[0].pause();", video)
@@ -120,7 +131,9 @@ def download_plays(driver, base_name, result: list, max_retries: int = 3):
                     raise RuntimeError("Video source is missing or invalid")
 
                 try:
-                    driver.find_element(By.CSS_SELECTOR, 'button[data-click="close"]').click()
+                    driver.find_element(
+                        By.CSS_SELECTOR, 'button[data-click="close"]'
+                    ).click()
                 except Exception:
                     pass
 
@@ -178,7 +191,10 @@ def download_plays(driver, base_name, result: list, max_retries: int = 3):
                         pass
 
         if not saved:
-            print(f"Skipping clip after {max_retries} failed attempts: {video_url}")
+            print(
+                f"Skipping clip after {max_retries} failed attempts: "
+                f"{video_url}"
+            )
 
         time.sleep(3)
 

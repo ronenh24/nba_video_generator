@@ -1,8 +1,8 @@
-"""Play-by-play, game title and game date, read through the browser (or direct requests)."""
+"""Play-by-play, game title and game date, read through the browser
+(or direct requests)."""
 import json
 import re
 import time
-from pathlib import Path
 
 import requests
 from selenium.webdriver.common.by import By
@@ -10,9 +10,15 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
-CDN_HEADERS = {"User-Agent": UA, "Referer": "https://www.nba.com/", "Accept": "application/json"}
+CDN_HEADERS = {
+    "User-Agent": UA, "Referer": "https://www.nba.com/",
+    "Accept": "application/json"
+}
 
-PBP_CDN = "https://cdn.nba.com/static/json/liveData/playbyplay/playbyplay_{gid}.json"
+PBP_CDN = (
+    "https://cdn.nba.com/static/json/liveData/playbyplay/"
+    "playbyplay_{gid}.json"
+)
 PBP_STATS = "https://stats.nba.com/stats/playbyplayv3"
 STATS_HEADERS = {
     "Host": "stats.nba.com",
@@ -30,13 +36,19 @@ STATS_HEADERS = {
 def get_pbp(gid: str) -> list:
     """CDN first (works from almost anywhere), stats.nba.com as fallback."""
     try:
-        r = requests.get(PBP_CDN.format(gid=gid), headers=CDN_HEADERS, timeout=30)
+        r = requests.get(
+            PBP_CDN.format(gid=gid), headers=CDN_HEADERS, timeout=30
+        )
         r.raise_for_status()
         return r.json()["game"]["actions"]
     except Exception as e:
         print(f"CDN play-by-play failed ({e}); trying stats.nba.com ...")
-    r = requests.get(PBP_STATS, headers=STATS_HEADERS, timeout=(5, 15),
-                     params={"GameID": gid, "StartPeriod": 0, "EndPeriod": 0})
+    r = requests.get(
+        PBP_STATS,
+        headers=STATS_HEADERS,
+        timeout=(5, 15),
+        params={"GameID": gid, "StartPeriod": 0, "EndPeriod": 0},
+    )
     r.raise_for_status()
     return r.json()["game"]["actions"]
 
@@ -61,8 +73,13 @@ def _find_actions(obj):
 JS_FETCH_JSON = """
 var url = arguments[0];
 var cb = arguments[arguments.length - 1];
-fetch(url).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
-  .then(t => cb(t)).catch(e => cb("ERROR: " + e.message));
+fetch(url)
+  .then(r => {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.text();
+  })
+  .then(t => cb(t))
+  .catch(e => cb("ERROR: " + e.message));
 """
 
 
@@ -81,7 +98,9 @@ def get_pbp_browser(driver, gid: str) -> list:
 
     # a) data the page embeds for itself
     raw = driver.execute_script(
-        "var e=document.getElementById('__NEXT_DATA__'); return e ? e.textContent : null;")
+        "var e=document.getElementById('__NEXT_DATA__'); "
+        "return e ? e.textContent : null;"
+    )
     if raw:
         try:
             actions = _find_actions(json.loads(raw))
@@ -103,10 +122,14 @@ def get_pbp_browser(driver, gid: str) -> list:
                 continue
             try:
                 body = driver.execute_cdp_cmd(
-                    "Network.getResponseBody", {"requestId": msg["params"]["requestId"]})
+                    "Network.getResponseBody",
+                    {"requestId": msg["params"]["requestId"]}
+                )
                 actions = _find_actions(json.loads(body["body"]))
                 if actions:
-                    print(f"Play-by-play captured from page request: {url[:90]}")
+                    print(
+                        f"Play-by-play captured from page request: {url[:90]}"
+                    )
                     return actions
             except Exception:
                 continue
@@ -116,7 +139,9 @@ def get_pbp_browser(driver, gid: str) -> list:
     # c) fetch the CDN file from inside the nba.com page
     try:
         driver.set_script_timeout(60)
-        txt = driver.execute_async_script(JS_FETCH_JSON, PBP_CDN.format(gid=gid))
+        txt = driver.execute_async_script(
+            JS_FETCH_JSON, PBP_CDN.format(gid=gid)
+        )
         if txt and not txt.startswith("ERROR:"):
             actions = _find_actions(json.loads(txt))
             if actions:
@@ -125,16 +150,20 @@ def get_pbp_browser(driver, gid: str) -> list:
     except Exception:
         pass
 
+
 def get_game_title(driver, gid: str) -> str:
     """Video title taken from the play-by-play page (page title / og:title)."""
     try:
         if "play-by-play" not in driver.current_url:
             driver.get(f"https://www.nba.com/game/{gid}/play-by-play")
             WebDriverWait(driver, 30).until(
-                lambda d: d.find_element(By.TAG_NAME, "body").text.strip() != "")
+                lambda d: d.find_element(
+                    By.TAG_NAME, "body"
+                ).text.strip() != "")
         t = driver.execute_script(
-            "var m=document.querySelector('meta[property=\"og:title\"]');"
-            "return (m && m.content) || document.title || '';") or ""
+            "var m=document.querySelector('meta[property=\"og:title\"]'); "
+            "return (m && m.content) || document.title || '';"
+        ) or ""
     except Exception:
         t = ""
     t = re.sub(r"\s*[|\u2013-]\s*NBA(\.com)?\s*$", "", t.strip(), flags=re.I)
@@ -143,12 +172,15 @@ def get_game_title(driver, gid: str) -> str:
     return t or f"NBA game {gid}"
 
 
-MONTH_RE = (r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+"
-            r"\d{1,2},?\s+\d{4}")
+MONTH_RE = (
+    r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+"
+    r"\d{1,2},?\s+\d{4}"
+)
 
 
 def _find_date_in_json(obj):
-    """Look for a game date in the page JSON; returns a datetime.date or None."""
+    """Look for a game date in the page JSON;
+    returns a datetime.date or None."""
     from datetime import datetime, timezone
     from zoneinfo import ZoneInfo
     local_keys = ("gameEt", "gameDateEst", "gameTimeEst", "gameDate")
@@ -179,28 +211,32 @@ def _find_date_in_json(obj):
 
 
 def get_game_date(driver, gid: str) -> str:
-    """Game date as 'Oct 5, 2026', from the play-by-play page. '' if not found."""
+    """Game date as 'Oct 5, 2026', from the play-by-play page.
+    '' if not found."""
     try:
         if "play-by-play" not in driver.current_url:
             driver.get(f"https://www.nba.com/game/{gid}/play-by-play")
             WebDriverWait(driver, 30).until(
-                lambda d: d.find_element(By.TAG_NAME, "body").text.strip() != "")
+                lambda d: d.find_element(
+                    By.TAG_NAME, "body"
+                ).text.strip() != "")
             time.sleep(2)
         raw = driver.execute_script(
-            "var e=document.getElementById('__NEXT_DATA__'); return e ? e.textContent : null;")
+            "var e=document.getElementById('__NEXT_DATA__'); "
+            "return e ? e.textContent : null;"
+        )
         if raw:
             d = _find_date_in_json(json.loads(raw))
             if d:
                 return f"{d.strftime('%b')} {d.day}, {d.year}"
         text = driver.execute_script(
-            "var m=document.querySelector('meta[property=\"og:title\"]');"
-            "return [(m&&m.content)||'', document.title||'',"
-            "(document.body.innerText||'').slice(0,3000)].join(' ');") or ""
+            "var m=document.querySelector('meta[property=\"og:title\"]'); "
+            "return [(m&&m.content)||'', document.title||'', "
+            "(document.body.innerText||'').slice(0,3000)].join(' ');"
+        ) or ""
         m = re.search(MONTH_RE, text)
         if m:
             return re.sub(r"\s+", " ", m.group(0)).replace(".", "")
     except Exception as e:
         print(f"  could not read game date: {e}")
     return ""
-
-

@@ -6,8 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 
 
-time_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_clockElement')]"
-desc_tag = ".//span[starts-with(@class, 'GamePlayByPlayRow_desc')]"
+TIME_TAG = ".//span[starts-with(@class, 'GamePlayByPlayRow_clockElement')]"
+DESC_TAG = ".//span[starts-with(@class, 'GamePlayByPlayRow_desc')]"
 
 
 # ---------------------------------------------------------------- helpers
@@ -70,10 +70,14 @@ def load_actions(driver, gid: str) -> dict:
 
     # 2) otherwise fetch the feed from inside the browser
     if not actions:
-        url = f"https://cdn.nba.com/static/json/liveData/playbyplay/playbyplay_{gid}.json"
+        url = (
+            f"https://cdn.nba.com/static/json/liveData/playbyplay/"
+            f"playbyplay_{gid}.json"
+        )
         txt = driver.execute_async_script(
             "const cb = arguments[arguments.length-1];"
-            "fetch(arguments[0]).then(r => r.text()).then(cb).catch(e => cb(''));",
+            "fetch(arguments[0]).then(r => r.text()).then(cb)"
+            ".catch(e => cb(''));",
             url,
         )
         if txt:
@@ -87,13 +91,18 @@ def load_actions(driver, gid: str) -> dict:
         if "description" not in a:
             a["description"] = ""
         k = _key(a["period"], clock_to_sec(a["clock"]), a["description"])
-        lookup.setdefault(k, a["actionNumber"])  # first one wins on duplicates
+        lookup.setdefault(
+            k, a["actionNumber"]
+        )  # first one wins on duplicates
     return lookup
 
 
 # ------------------------------------------------------------------- main
 
-def get_plays(driver: webdriver, pbp_url: str, last_name: str, data_is_home_team: str):
+def get_plays(
+        driver: webdriver, pbp_url: str, last_name: str,
+        data_is_home_team: str
+):
     driver.get(pbp_url)
 
     game_title = driver.title.rstrip(" Play-by-Play | NBA.com").split("vs")
@@ -130,13 +139,18 @@ def get_plays(driver: webdriver, pbp_url: str, last_name: str, data_is_home_team
         rows = play_by_play.find_elements(By.TAG_NAME, "article")
 
         for i, row in enumerate(rows):
-            if row.get_attribute("data-is-home-team") == data_is_home_team and last_name.lower() in row.text.lower():
+            if (
+                row.get_attribute("data-is-home-team") == data_is_home_team
+                and last_name.lower() in row.text.lower()
+            ):
                 try:
-                    desc_raw = row.find_element(By.XPATH, desc_tag).text
+                    desc_raw = row.find_element(By.XPATH, DESC_TAG).text
                     if not _ball_exception(last_name, desc_raw):
                         continue
                     desc = desc_raw.lower()
-                    play_time = clock_to_sec(row.find_element(By.XPATH, time_tag).text)
+                    play_time = clock_to_sec(
+                        row.find_element(By.XPATH, TIME_TAG).text
+                    )
 
                     eid = lookup.get(_key(quarter, play_time, desc_raw))
                     if eid is None:
@@ -148,7 +162,9 @@ def get_plays(driver: webdriver, pbp_url: str, last_name: str, data_is_home_team
                             foul_link, foul_desc = _find_foul_url(
                                 rows, i, play_time, gid, lookup, quarter
                             )
-                            result.append((foul_link, foul_desc, quarter, play_time))
+                            result.append(
+                                (foul_link, foul_desc, quarter, play_time)
+                            )
                         except Exception:
                             pass
                     result.append((video_url, desc_raw, quarter, play_time))
@@ -179,14 +195,14 @@ def _ball_exception(last_name, desc):
 def _find_foul_url(rows, i, play_time, gid, lookup, quarter):
     for j in range(i - 1, -1, -1):
         try:
-            t = clock_to_sec(rows[j].find_element(By.XPATH, time_tag).text)
+            t = clock_to_sec(rows[j].find_element(By.XPATH, TIME_TAG).text)
         except Exception:
             continue
 
         if t != play_time:
             break
 
-        desc_raw = rows[j].find_element(By.XPATH, desc_tag).text
+        desc_raw = rows[j].find_element(By.XPATH, DESC_TAG).text
         if "foul" in desc_raw.lower():
             eid = lookup.get(_key(quarter, t, desc_raw))
             if eid is not None:

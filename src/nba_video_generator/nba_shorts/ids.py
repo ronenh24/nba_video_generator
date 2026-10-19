@@ -2,6 +2,7 @@
 import re
 from urllib.parse import quote
 
+
 # ============================================================ game id helpers
 def get_game_id(arg: str) -> str:
     """Accepts a 10-digit game ID or any nba.com URL containing one."""
@@ -28,9 +29,9 @@ def event_url(gid: str, eid: int, desc: str) -> str:
             f"&Season={season_from_game_id(gid)}&flag=1&title={quote(desc)}")
 
 
-
 def parse_date(text: str):
-    """'today', 'yesterday', 2026-10-05, 10/05/2026, 'Oct 5, 2026' -> datetime.date"""
+    """'today', 'yesterday', 2026-10-05, 10/05/2026, 'Oct 5, 2026'
+    -> datetime.date"""
     from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo
     t = text.strip()
@@ -39,12 +40,14 @@ def parse_date(text: str):
         return now_et
     if t.lower() == "yesterday":
         return now_et - timedelta(days=1)
-    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%b %d, %Y", "%B %d, %Y", "%b %d %Y", "%B %d %Y"):
+    for fmt in (
+        "%Y-%m-%d", "%m/%d/%Y", "%b %d, %Y",
+        "%B %d, %Y", "%b %d %Y", "%B %d %Y"
+    ):
         try:
             return datetime.strptime(t.replace(".", ""), fmt).date()
         except ValueError:
             pass
     raise ValueError(
-        f"Could not understand date: {text!r} (try 2026-10-05, yesterday, or 'Oct 5, 2026')")
-
-
+        f"Could not understand date: {text!r} (try 2026-10-05, yesterday, "
+        "or 'Oct 5, 2026')")

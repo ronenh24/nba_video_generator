@@ -1,4 +1,4 @@
-"""Scrape nba.com's daily schedule and box scores.
+"""crawl nba.com's daily schedule and box scores.
 
 NOTE: nba.com's markup can change. This targets the structure of the
 GameBoxscore_* / StatsTable_* components as of this writing (the same
@@ -11,27 +11,34 @@ import re
 import time
 
 from bs4 import BeautifulSoup
-from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
+from selenium.common.exceptions import (
+    NoSuchElementException, TimeoutException, WebDriverException
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from .config import BASE_GAMES_URL, SCRAPE_MAX_ATTEMPTS, SCRAPE_RETRY_BACKOFF_SECONDS, STAT_COLUMNS
+from .config import (
+    BASE_GAMES_URL, CRAWL_MAX_ATTEMPTS,
+    CRAWL_RETRY_BACKOFF_SECONDS, STAT_COLUMNS, BANNED_SET
+)
 
 
 GAME_LINK_SELECTOR = "a[href*='/game/']"
 GAME_STATUS_SELECTOR = '[data-game-status]'
 PLAYER_LINK_SELECTOR = "a[href*='/player/']"
-HEADSHOT_URL = "https://cdn.nba.com/headshots/nba/latest/1040x760/{player_id}.png"
+HEADSHOT_URL = (
+    "https://cdn.nba.com/headshots/nba/latest/1040x760/{player_id}.png"
+)
 
 
-def _retry_scrape(description: str, default_factory):
-    """Decorator: retries a scrape function, reloading and backing off,
+def _retry_crawl(description: str, default_factory):
+    """Decorator: retries a crawl function, reloading and backing off,
     whenever it either raises (timeout / driver error) or comes back empty
     (page loaded but nba.com hadn't finished hydrating it yet). Each retry
     calls the wrapped function again from scratch, which re-navigates via
     driver.get(url) — effectively a fresh page load, not a stale re-render.
-    Gives up after SCRAPE_MAX_ATTEMPTS and returns the emptiest safe default
+    Gives up after CRAWL_MAX_ATTEMPTS and returns the emptiest safe default
     (an empty list/dict) so callers never see an exception, just "nothing
     found here."""
 
@@ -39,27 +46,30 @@ def _retry_scrape(description: str, default_factory):
         @functools.wraps(fn)
         def wrapper(driver, *args, **kwargs):
             result = default_factory()
-            for attempt in range(1, SCRAPE_MAX_ATTEMPTS + 1):
+            for attempt in range(1, CRAWL_MAX_ATTEMPTS + 1):
                 try:
                     result = fn(driver, *args, **kwargs)
                     if result:
                         return result
                     print(
                         f"    ! {description}: loaded but empty "
-                        f"(attempt {attempt}/{SCRAPE_MAX_ATTEMPTS})"
+                        f"(attempt {attempt}/{CRAWL_MAX_ATTEMPTS})"
                     )
                 except (TimeoutException, WebDriverException) as e:
                     print(
                         f"    ! {description}: {e.__class__.__name__} "
-                        f"(attempt {attempt}/{SCRAPE_MAX_ATTEMPTS})"
+                        f"(attempt {attempt}/{CRAWL_MAX_ATTEMPTS})"
                     )
 
-                if attempt < SCRAPE_MAX_ATTEMPTS:
-                    wait = SCRAPE_RETRY_BACKOFF_SECONDS * attempt
+                if attempt < CRAWL_MAX_ATTEMPTS:
+                    wait = CRAWL_RETRY_BACKOFF_SECONDS * attempt
                     print(f"      retrying in {wait}s...")
                     time.sleep(wait)
 
-            print(f"    ! {description}: giving up after {SCRAPE_MAX_ATTEMPTS} attempts")
+            print(
+                f"    ! {description}: giving up after "
+                f"{CRAWL_MAX_ATTEMPTS} attempts"
+            )
             return result
 
         return wrapper
@@ -87,7 +97,8 @@ def _player_id_and_image(tr) -> tuple[str, str]:
         if m:
             player_id = m.group(1)
 
-    img = tr.select_one("img[class*='PlayerImage_image']") or tr.select_one("img")
+    img = tr.select_one("img[class*='PlayerImage_image']") or\
+        tr.select_one("img")
     # nba.com lazy-loads images, so src can be a placeholder; try data-src too.
     img_src = ((img.get("src") or img.get("data-src") or "") if img else "")
 
@@ -101,7 +112,7 @@ def _player_id_and_image(tr) -> tuple[str, str]:
     return "", img_src
 
 
-@_retry_scrape("fetching schedule", default_factory=list)
+@_retry_crawl("fetching schedule", default_factory=list)
 def get_boxscore_urls_for_date(driver, date: str) -> list[str]:
     """Return box-score page URLs (in schedule order) for FINAL games only."""
     driver.get(BASE_GAMES_URL.format(date=date))
@@ -114,7 +125,9 @@ def get_boxscore_urls_for_date(driver, date: str) -> list[str]:
     urls = []
     seen = set()
 
-    for status_el in driver.find_elements(By.CSS_SELECTOR, GAME_STATUS_SELECTOR):
+    for status_el in driver.find_elements(
+        By.CSS_SELECTOR, GAME_STATUS_SELECTOR
+    ):
         if not _is_final(status_el):
             continue
 
@@ -144,14 +157,18 @@ def get_boxscore_urls_for_date(driver, date: str) -> list[str]:
     return urls[::-1]
 
 
-@_retry_scrape("parsing box score", default_factory=dict)
+@_retry_crawl("parsing box score", default_factory=dict)
 def parse_boxscore(driver, url: str) -> dict[str, list[dict]]:
-    """Load a box-score page and return {team_full_name: [player_stat_dict, ...]}.
-    Each dict holds the STAT_COLUMNS values plus PLAYER, PLAYER_ID and IMAGE_URL.
-    Returns {} (triggering a retry) if fewer than 2 teams were parsed, since
-    that almost always means the page hadn't finished rendering."""
+    """Load a box-score page and return
+    {team_full_name: [player_stat_dict, ...]}.
+    Each dict holds the STAT_COLUMNS values plus PLAYER, PLAYER_ID and
+    IMAGE_URL. Returns {} (triggering a retry) if fewer than 2 teams
+    were parsed, since that almost always means the page hadn't
+    finished rendering."""
     driver.get(url)
-    WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, "table")))
+    WebDriverWait(driver, 15).until(EC.presence_of_element_located(
+        (By.CSS_SELECTOR, "table"))
+    )
     time.sleep(1)
 
     soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -186,6 +203,8 @@ def parse_boxscore(driver, url: str) -> dict[str, list[dict]]:
 
             stats = dict(zip(STAT_COLUMNS, values))
             stats["PLAYER"] = name_span.get_text(strip=True)
+            if stats["PLAYER"] in BANNED_SET:
+                continue
 
             player_id, image_url = _player_id_and_image(tr)
             stats["PLAYER_ID"] = player_id

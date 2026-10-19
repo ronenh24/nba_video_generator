@@ -1,4 +1,7 @@
-"""Daily agent: find significant NBA performances and build highlight videos."""
+"""
+Daily agent: find significant NBA performances and
+build highlight videos.
+"""
 import json
 import os
 import unicodedata
@@ -10,7 +13,7 @@ from selenium.webdriver.chrome.service import Service
 
 from .config import STATE_FILE, FFMPEG_PATH
 from .team_map import abbr_for
-from .scraper import get_boxscore_urls_for_date, parse_boxscore
+from .crawler import get_boxscore_urls_for_date, parse_boxscore
 from .significance import rule_based_candidates, ollama_judge
 from .thumbnail import attach_headshot, make_thumbnail
 from .team_logo import attach_logo
@@ -149,7 +152,10 @@ def run_for_date(
     options.add_argument("--headless=new")
     options.add_argument("--log-level=3")
     options.add_argument("--window-size=1920,1080")
-    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+    options.add_argument(
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+    )
 
     driver = webdriver.Chrome(service=service, options=options)
     # driver.maximize_window()
@@ -347,24 +353,26 @@ def run_for_date(
             },
         )
 
-        with open(
-            "statlines.txt",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            f.write("\n".join(stats))
-
         # `titles` only contains successfully made videos.
         # Match each title back to its job using the player name
         # from `thumb_job` (no need to unpack `job` at all).
         successful_keys = set()
 
         for title in titles:
-            for thumb_job, key in zip(thumb_jobs, already_done_list):
+            for thumb_job, key, stat in zip(
+                thumb_jobs, already_done_list, stats
+            ):
                 name, abbr, row = thumb_job
 
                 if name in title:
                     path = os.path.join(THUMB_DIR, title + ".jpg")
+                    with open(
+                        title + " description.txt", "r+",
+                        encoding="utf-8"
+                    ) as f:
+                        old_content = f.read()
+                        f.seek(0)
+                        f.write(stat + "\n\n" + old_content)
                     try:
                         make_thumbnail(name, abbr, row, path)
                         print(f"  thumbnail -> {path}")

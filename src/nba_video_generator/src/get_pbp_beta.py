@@ -1,13 +1,18 @@
+"""
+Gets play by play url from the game.
+"""
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
-boxscore_tag = "//a[@data-text='BOX SCORE']"
+BOXSCORE_TAG = "//a[@data-text='BOX SCORE']"
 
 
 def get_pbp(driver: webdriver, base_url: str, date: str, team: str):
+    """Gets play by play url from the game."""
     driver.get(base_url + date)
 
     body = driver.find_element(By.TAG_NAME, "body").text.lower()
@@ -20,7 +25,7 @@ def get_pbp(driver: webdriver, base_url: str, date: str, team: str):
 
     try:
         game_urls = WebDriverWait(driver, 30).until(
-            EC.presence_of_all_elements_located((By.XPATH, boxscore_tag))
+            EC.presence_of_all_elements_located((By.XPATH, BOXSCORE_TAG))
         )
     except Exception:
         return None, None

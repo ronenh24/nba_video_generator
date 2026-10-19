@@ -6,10 +6,10 @@ from dataclasses import dataclass
 class Config:
     top: int = 4                  # plays per game
     min_score: float = 3.0        # minimum play score
-    player: str = ""              # only plays whose description contains this text
+    player: str = ""              # only plays that contains this text
     out: str = "."                # root folder for individual clips
     compiled_dir: str = "."       # where compiled videos are saved
-    headless: bool = True         # headless Chrome (the NBA player often refuses it)
+    headless: bool = True         # headless Chrome
     retries: int = 3              # download attempts per clip
     dry_run: bool = False         # pick plays only, download nothing
     title: str = ""               # override the video title (single game)

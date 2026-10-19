@@ -1,4 +1,6 @@
-"""Remember which games already have a finished short (processed_shorts.json)."""
+"""
+Remember which games already have a finished short (processed_shorts.json).
+"""
 import json
 import os
 from datetime import datetime
@@ -8,8 +10,8 @@ from pathlib import Path
 def load_processed(path) -> dict:
     """{game_id: {"title", "video", "processed_at"}}. Missing file -> {}.
 
-    A plain JSON list of game IDs is accepted too. A corrupt file is moved aside
-    to <name>.bak so it is never silently overwritten.
+    A plain JSON list of game IDs is accepted too. A corrupt file is moved
+    aside to <name>.bak so it is never silently overwritten.
     """
     p = Path(path)
     if not p.exists():
@@ -23,7 +25,10 @@ def load_processed(path) -> dict:
         raise ValueError("unexpected JSON structure")
     except (ValueError, OSError) as e:
         bak = p.with_name(p.name + ".bak")
-        print(f"Warning: {p} unreadable ({e}); moved to {bak} and starting fresh.")
+        print(
+            f"Warning: {p} unreadable ({e}); moved to {bak} and "
+            "starting fresh."
+        )
         try:
             os.replace(p, bak)
         except OSError:
@@ -46,5 +51,8 @@ def mark_processed(path, game_id: str, title: str = "", video=None) -> None:
     }
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_name(p.name + ".tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False),
+        encoding="utf-8"
+    )
     os.replace(tmp, p)

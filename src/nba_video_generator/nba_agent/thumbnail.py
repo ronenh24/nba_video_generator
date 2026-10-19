@@ -11,10 +11,10 @@ import os
 import unicodedata
 import urllib.request
 
+from PIL import Image, ImageDraw, ImageFont
+
 from .team_logo import logo_layer
 from .team_map import team_for
-
-from PIL import Image, ImageDraw, ImageFont
 
 W, H = 1280, 720
 
@@ -137,7 +137,10 @@ def _footer(row: dict) -> str:
 def headshot_url(row: dict) -> str:
     url = _get(row, "IMAGE_URL")
     if not url and _get(row, "PLAYER_ID"):
-        url = f"https://cdn.nba.com/headshots/nba/latest/1040x760/{row['PLAYER_ID']}.png"
+        url = (
+            "https://cdn.nba.com/headshots/nba/latest/1040x760/"
+            f"{row['PLAYER_ID']}.png"
+        )
     return url
 
 
@@ -167,7 +170,9 @@ def fetch_image_via_browser(driver, url: str) -> bytes | None:
 
 
 def attach_headshot(driver, row: dict) -> None:
-    """Fetch the headshot through the browser and stash the bytes on the row."""
+    """
+    Fetch the headshot through the browser and stash the bytes on the row.
+    """
     url = headshot_url(row)
     if url and not row.get("HEADSHOT_BYTES"):
         data = fetch_image_via_browser(driver, url)
@@ -195,13 +200,19 @@ def _fetch_headshot(row: dict):
             with urllib.request.urlopen(req, timeout=10) as r:
                 data = r.read()
         except Exception as e:
-            print(f"    ! headshot fetch failed ({e.__class__.__name__}); continuing without it")
+            print(
+                f"    ! headshot fetch failed ({e.__class__.__name__}); "
+                "continuing without it"
+            )
             return None
 
     try:
         return Image.open(io.BytesIO(data)).convert("RGBA")
     except Exception as e:
-        print(f"    ! headshot decode failed ({e.__class__.__name__}); continuing without it")
+        print(
+            f"    ! headshot decode failed ({e.__class__.__name__}); "
+            "continuing without it"
+        )
         return None
 
 
@@ -214,7 +225,8 @@ def _background(color: tuple[int, int, int]) -> Image.Image:
         t = max(0.0, (x - W * 0.25) / (W * 0.75))
         d.line([(x, 0), (x, H)], fill=int(255 * min(1.0, t) ** 1.3))
     base = Image.new("RGB", (W, H), dark)
-    return Image.composite(Image.new("RGB", (W, H), color), base, mask).convert("RGBA")
+    return Image.composite(
+        Image.new("RGB", (W, H), color), base, mask).convert("RGBA")
 
 
 def _fit_font(draw, text: str, max_width: int, start: int, minimum: int = 60):
@@ -242,7 +254,9 @@ def _split_name(name: str) -> tuple[str, str]:
 # --------------------------------------------------------------------------
 # Public API
 # --------------------------------------------------------------------------
-def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -> str:
+def make_thumbnail(
+        player_name: str, team_abbr: str, row: dict, out_path: str
+) -> str:
     player_name = _remove_accents(player_name)
     team_name = team_for(team_abbr)
 
@@ -257,9 +271,9 @@ def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -
     if shot:
         new_h = 720
         new_w = int(shot.width * new_h / shot.height)
-        shot = shot.resize((new_w, new_h), Image.LANCZOS)
+        shot = shot.resize((new_w, new_h), Image.Resampling.LANCZOS)
         layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        layer.paste(shot, (900 - new_w // 2, H - new_h))  # off-canvas parts are clipped
+        layer.paste(shot, (900 - new_w // 2, H - new_h))  # clip off-canvas
         img = Image.alpha_composite(img, layer)
 
     draw = ImageDraw.Draw(img, "RGBA")
@@ -296,7 +310,10 @@ def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -
 
     # Name
     first, last = _split_name(player_name)
-    _text(draw, (60, 125), first.upper(), _font(56), fill=(225, 225, 225), stroke=2)
+    _text(
+        draw, (60, 125), first.upper(), _font(56),
+        fill=(225, 225, 225), stroke=2
+    )
     last_font = _fit_font(draw, last.upper(), 600, 150)
     _text(draw, (56, 175), last.upper(), last_font, stroke=4)
 
@@ -309,19 +326,25 @@ def make_thumbnail(player_name: str, team_abbr: str, row: dict, out_path: str) -
         y = y0 + (i // 2) * (tile_h + gap)
         fill = color + (235,) if i == 0 else (0, 0, 0, 170)
         draw.rounded_rectangle((x, y, x + tile_w, y + tile_h), 20, fill=fill)
-        _text(draw, (x + 24, y + 92), str(value), _font(88), stroke=2, anchor="ls")
-        _text(draw, (x + 26, y + 122), label, _font(28), fill=(235, 235, 235), anchor="ls")
+        _text(
+            draw, (x + 24, y + 92), str(value), _font(88),
+            stroke=2, anchor="ls"
+        )
+        _text(
+            draw, (x + 26, y + 122), label, _font(28),
+            fill=(235, 235, 235), anchor="ls"
+        )
 
     footer = _footer(row)
     if footer:
-        _text(draw, (62, 672), footer, _font(28), fill=(220, 220, 220), stroke=1)
+        _text(
+            draw, (62, 672), footer, _font(28),
+            fill=(220, 220, 220), stroke=1
+        )
 
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     out = img.convert("RGB")
-    out.save(out_path, quality=92) if out_path.lower().endswith((".jpg", ".jpeg")) else out.save(out_path)
+    out.save(out_path, quality=92)\
+        if out_path.lower().endswith((".jpg", ".jpeg"))\
+        else out.save(out_path)
     return out_path
-
-
-# def thumbnail_path(out_dir: str, date: str, player_name: str, team_abbr: str) -> str:
-#     slug = re.sub(r"[^a-z0-9]+", "-", player_name.lower()).strip("-")
-#     return os.path.join(out_dir, f"{date}_{slug}_{team_abbr}.jpg")
