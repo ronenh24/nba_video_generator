@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nba-video-generator"
-version = "7.0.14"
+version = "7.0.15"
 authors = [
   { name="Ronen Huang", email="ronenhuang24@gmail.com" },
 ]
@@ -38,3 +38,6 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/ronenh24/nba_video_generator"
 Issues = "https://github.com/ronenh24/nba_video_generator/issues"
+
+[project.scripts]
+nba-video-generator-web = "nba_video_generator.web:main"

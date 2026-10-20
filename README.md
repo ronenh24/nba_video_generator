@@ -124,3 +124,22 @@ ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_vi
 
 make_shorts_for_date(date, ffmpeg_path)
 ```
+
+## Web Interface
+Run all three workflows from a local browser dashboard:
+
+```bash
+python -m pip install --upgrade nba-video-generator
+nba-video-generator-web
+```
+
+After the new release is published, install it from PyPI as shown above. The
+dashboard opens at `http://127.0.0.1:8765`. It includes forms for the
+player pipeline (including date ranges and multiple players), the daily agent,
+and top-plays Shorts. Jobs run in the background and stream their output to the
+activity panel. Only one workflow can run at a time. To choose another port or
+keep the browser closed:
+
+```bash
+nba-video-generator-web --port 8766 --no-browser
+```
