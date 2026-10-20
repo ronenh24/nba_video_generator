@@ -85,6 +85,11 @@ _PAGE = r"""<!doctype html>
     .picker-row { display: flex; gap: 8px; align-items: end; }
     .picker-row > div { flex: 1; min-width: 0; }
     .safety-note { border: 1px solid #33486a; border-radius: 9px; padding: 11px 12px; background: #101c30; color: #bac9df; font-size: 12px; margin-top: 16px; }
+    .game-list { display: grid; gap: 7px; max-height: 230px; overflow-y: auto; }
+    .game-option { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; background: #101827; color: #dce7f7; font-size: 13px; cursor: pointer; }
+    .game-option input { width: 16px; height: 16px; accent-color: var(--blue); }
+    .game-selection-actions { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
+    .game-selection-actions button { font-size: 11px; }
     .checkbox { display: flex; align-items: center; gap: 9px; margin: 16px 0 2px; color: #c0cad8; font-size: 13px; }
     .checkbox input { width: 15px; height: 15px; accent-color: var(--blue); }
     .button { background: var(--blue); color: #f7faff; border: 0; border-radius: 9px; padding: 11px 17px; font: inherit; font-weight: 800; cursor: pointer; }
@@ -153,6 +158,11 @@ _PAGE = r"""<!doctype html>
             <div><label for="agent-date">Game date</label><input id="agent-date" name="date" type="date" required></div>
             <div><label>Workflow</label><input value="Find standout performances" disabled></div>
           </div>
+          <div class="row-actions">
+            <button class="picker" id="load-agent-games" type="button">Load games for date</button>
+            <span class="status" id="agent-games-status">Select a date and load finished games.</span>
+          </div>
+          <div id="agent-games" class="game-list" aria-label="Games to analyze"></div>
           <label class="checkbox"><input type="checkbox" name="threshold" checked> Apply performance thresholds</label>
           <div class="ffmpeg">
             <label for="agent-ffmpeg">FFmpeg executable</label>
@@ -162,7 +172,7 @@ _PAGE = r"""<!doctype html>
             </div>
             <p class="hint">Videos and thumbnails are generated using the agent's configured output folders.</p>
           </div>
-          <div class="run-row"><span class="status" id="agent-status">Ready to run</span><button class="button" type="submit">Run daily agent&nbsp; →</button></div>
+          <div class="run-row"><span class="status" id="agent-status">Load games to continue</span><button class="button" id="agent-submit" type="submit" disabled>Run daily agent&nbsp; →</button></div>
         </form>
 
         <form id="shorts" class="form-panel" hidden>
@@ -244,6 +254,118 @@ _PAGE = r"""<!doctype html>
     addPlayer();
     document.getElementById('add-player').addEventListener('click', addPlayer);
 
+    const agentDate = document.getElementById('agent-date');
+    const agentGames = document.getElementById('agent-games');
+    const agentGamesStatus = document.getElementById('agent-games-status');
+    const agentSubmit = document.getElementById('agent-submit');
+    const loadGamesButton = document.getElementById('load-agent-games');
+    let loadedAgentGamesDate = '';
+    function updateAgentSelection() {
+      const selected = agentGames.querySelectorAll('input[type="checkbox"]:checked').length;
+      agentSubmit.disabled = !loadedAgentGamesDate || loadedAgentGamesDate !== agentDate.value || selected === 0;
+      if (loadedAgentGamesDate && loadedAgentGamesDate === agentDate.value) {
+        agentGamesStatus.textContent = `${selected} game${selected === 1 ? '' : 's'} selected`;
+      }
+    }
+    function showAgentGames(games, targetDate) {
+      agentGames.replaceChildren();
+      loadedAgentGamesDate = targetDate;
+      if (!games.length) {
+        agentGamesStatus.textContent = 'No finished games found for this date.';
+        agentSubmit.disabled = true;
+        return;
+      }
+      const actions = document.createElement('div');
+      actions.className = 'game-selection-actions';
+      const summary = document.createElement('span');
+      summary.className = 'hint';
+      summary.textContent = `${games.length} finished game${games.length === 1 ? '' : 's'}`;
+      actions.append(summary);
+      for (const [text, checked] of [['Select all', true], ['Select none', false]]) {
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'text-button';
+        action.textContent = text;
+        action.addEventListener('click', () => {
+          agentGames.querySelectorAll('input[type="checkbox"]').forEach(input => input.checked = checked);
+          updateAgentSelection();
+        });
+        actions.append(action);
+      }
+      agentGames.append(actions);
+      for (const game of games) {
+        const label = document.createElement('label');
+        label.className = 'game-option';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = game.url;
+        checkbox.checked = true;
+        checkbox.addEventListener('change', updateAgentSelection);
+        label.append(checkbox, document.createTextNode(game.label));
+        agentGames.append(label);
+      }
+      updateAgentSelection();
+    }
+
+    agentDate.addEventListener('change', () => {
+      loadedAgentGamesDate = '';
+      agentGames.replaceChildren();
+      agentGamesStatus.textContent = 'Date changed. Load games again.';
+      agentSubmit.disabled = true;
+    });
+
+    async function pollAgentGames(jobId, targetDate) {
+      try {
+        const response = await fetch(`/api/jobs/${jobId}`);
+        if (!response.ok) throw new Error(`Game-list request failed (${response.status})`);
+        const job = await response.json();
+        logEl.textContent = job.logs || 'Loading finished games…';
+        logEl.scrollTop = logEl.scrollHeight;
+        if (job.status === 'running') {
+          setTimeout(() => pollAgentGames(jobId, targetDate), 900);
+        } else {
+          loadGamesButton.disabled = false;
+          if (job.status !== 'succeeded') throw new Error(job.error || 'Could not load games.');
+          if (agentDate.value !== targetDate) return;
+          showAgentGames(job.result || [], targetDate);
+        }
+      } catch (error) {
+        loadGamesButton.disabled = false;
+        agentGamesStatus.className = 'status error';
+        agentGamesStatus.textContent = error.message;
+      }
+    }
+
+    loadGamesButton.addEventListener('click', async () => {
+      const targetDate = agentDate.value;
+      if (!targetDate) {
+        agentGamesStatus.className = 'status error';
+        agentGamesStatus.textContent = 'Choose a game date first.';
+        return;
+      }
+      loadGamesButton.disabled = true;
+      agentSubmit.disabled = true;
+      loadedAgentGamesDate = '';
+      agentGames.replaceChildren();
+      agentGamesStatus.className = 'status running';
+      agentGamesStatus.textContent = 'Loading finished games…';
+      try {
+        const response = await fetch('/api/jobs', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({operation: 'agent_games', date: targetDate})
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
+        infoEl.textContent = `Loading games · ${targetDate}`;
+        pollAgentGames(body.id, targetDate);
+      } catch (error) {
+        loadGamesButton.disabled = false;
+        agentGamesStatus.className = 'status error';
+        agentGamesStatus.textContent = error.message;
+      }
+    });
+
     document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(other => other.setAttribute('aria-selected', String(other === tab)));
       document.querySelectorAll('.form-panel').forEach(panel => panel.hidden = panel.id !== tab.dataset.panel);
@@ -291,7 +413,7 @@ _PAGE = r"""<!doctype html>
       }
     }
 
-    const labels = {pipeline: 'Player pipeline', agent: 'Daily agent', shorts: 'Top plays Shorts', upload: 'YouTube upload'};
+    const labels = {pipeline: 'Player pipeline', agent: 'Daily agent', agent_games: 'Game selection', shorts: 'Top plays Shorts', upload: 'YouTube upload'};
     document.querySelectorAll('.form-panel').forEach(form => form.addEventListener('submit', async event => {
       event.preventDefault();
       const button = form.querySelector('.button');
@@ -313,7 +435,10 @@ _PAGE = r"""<!doctype html>
         payload.delete_uploaded = form.querySelector('[name="delete_uploaded"]').checked;
       } else {
         payload.date = form.querySelector('[name="date"]').value;
-        if (form.id === 'agent') payload.threshold = form.querySelector('[name="threshold"]').checked;
+        if (form.id === 'agent') {
+          payload.threshold = form.querySelector('[name="threshold"]').checked;
+          payload.game_urls = [...agentGames.querySelectorAll('input[type="checkbox"]:checked')].map(input => input.value);
+        }
       }
       try {
         const response = await fetch('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
@@ -349,7 +474,9 @@ def _validate_payload(payload: Any) -> dict[str, Any]:
         raise ValueError("The request body must be a JSON object.")
 
     operation = payload.get("operation")
-    if not isinstance(operation, str) or operation not in {"pipeline", "agent", "shorts", "upload"}:
+    if not isinstance(operation, str) or operation not in {
+        "pipeline", "agent", "agent_games", "shorts", "upload"
+    }:
         raise ValueError("Choose a valid workflow.")
 
     ffmpeg_path = payload.get("ffmpeg_path", "")
@@ -382,13 +509,28 @@ def _validate_payload(payload: Any) -> dict[str, Any]:
                 raise ValueError(f"Player row {index}: end date must not be before start date.")
             jobs.append((player.strip(), start, end, team.strip().lower()))
         validated["players"] = jobs
-    elif operation in {"agent", "shorts"}:
+    elif operation in {"agent", "agent_games", "shorts"}:
         validated["date"] = _valid_date(payload.get("date"), "Game date")
         if operation == "agent":
             threshold = payload.get("threshold", True)
             if not isinstance(threshold, bool):
                 raise ValueError("Performance thresholds must be enabled or disabled.")
             validated["threshold"] = threshold
+            game_urls = payload.get("game_urls")
+            if not isinstance(game_urls, list) or not 1 <= len(game_urls) <= 30:
+                raise ValueError("Select between 1 and 30 games to analyze.")
+            if any(
+                not isinstance(url, str)
+                or not re.fullmatch(
+                    r"https://www\.nba\.com/game/[a-z-]+-\d+/box-score",
+                    url,
+                )
+                for url in game_urls
+            ):
+                raise ValueError("One or more selected game links are invalid.")
+            if len(set(game_urls)) != len(game_urls):
+                raise ValueError("A game can only be selected once.")
+            validated["game_urls"] = game_urls
     else:
         folder = payload.get("folder")
         client_secrets = payload.get("client_secrets")
@@ -483,7 +625,14 @@ def _run_job(job_id: str, payload: dict[str, Any]) -> None:
     try:
         with contextlib.redirect_stdout(writer), contextlib.redirect_stderr(writer):
             operation = payload["operation"]
-            if operation == "pipeline":
+            if operation == "agent_games":
+                from nba_video_generator.nba_agent.orchestrator import get_agent_games
+
+                result = get_agent_games(payload["date"])
+                with _jobs_lock:
+                    _jobs[job_id]["result"] = result
+                print(f"Found {len(result)} finished game(s).")
+            elif operation == "pipeline":
                 from nba_video_generator.src.beta_search import pipeline
 
                 result = pipeline(
@@ -498,6 +647,7 @@ def _run_job(job_id: str, payload: dict[str, Any]) -> None:
                     payload["ffmpeg_path"],
                     threshold=payload["threshold"],
                     approve=False,
+                    game_urls=payload["game_urls"],
                 )
             elif operation == "shorts":
                 from nba_video_generator.nba_shorts import make_shorts_for_date
@@ -670,6 +820,7 @@ class _Handler(BaseHTTPRequestHandler):
         operation_labels = {
             "pipeline": "Player pipeline",
             "agent": "Daily agent",
+            "agent_games": "Game selection",
             "shorts": "Top plays Shorts",
             "upload": "YouTube upload",
         }
@@ -682,6 +833,7 @@ class _Handler(BaseHTTPRequestHandler):
             "completed_at": None,
             "logs": "",
             "error": None,
+            "result": None,
         }
         with _jobs_lock:
             if _active_job_id is not None:

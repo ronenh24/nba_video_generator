@@ -4,6 +4,7 @@ build highlight videos.
 """
 import json
 import os
+import re
 import unicodedata
 from collections import defaultdict
 from datetime import date as date_cls
@@ -126,26 +127,7 @@ def _make_player_abbreviations(players) -> dict[tuple[str, str], str]:
     return abbreviations
 
 
-def run_agent(
-    target_date: str | None = None,
-    ffmpeg_path: str = FFMPEG_PATH,
-    threshold: bool = True,
-    approve: bool = False,
-) -> list[tuple[str, str, str, str]]:
-    """
-    Scan every box score for `target_date` (YYYY-MM-DD, defaults to today),
-    find significant performances, and kick off video generation for each
-    new one via your existing pipeline(). Also writes a thumbnail per
-    queued performance to THUMB_DIR. Returns the jobs that were run.
-
-    `ffmpeg_path` overrides config.FFMPEG_PATH for this run if given.
-    """
-    target_date = target_date or date_cls.today().isoformat()
-
-    state = _load_state()
-    state.setdefault(target_date, [])
-    already_done = set(state[target_date])
-
+def _new_driver():
     service = Service(log_output=os.devnull)
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
@@ -155,8 +137,52 @@ def run_agent(
         "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
     )
+    return webdriver.Chrome(service=service, options=options)
 
-    driver = webdriver.Chrome(service=service, options=options)
+
+def get_agent_games(target_date: str) -> list[dict[str, str]]:
+    """List final games for a date with labels suitable for the dashboard."""
+    driver = _new_driver()
+    try:
+        urls = get_boxscore_urls_for_date(driver, target_date)
+        games = []
+        for url in urls:
+            teams = parse_boxscore(driver, url)
+            if len(teams) == 2:
+                team_a, team_b = teams
+                label = f"{team_a} @ {team_b}"
+            else:
+                slug = url.rsplit("/game/", 1)[-1].removesuffix("/box-score")
+                label = re.sub(r"-\d+$", "", slug).replace("-", " ").title()
+            games.append({"url": url, "label": label})
+        return games
+    finally:
+        driver.quit()
+
+
+def run_agent(
+    target_date: str | None = None,
+    ffmpeg_path: str = FFMPEG_PATH,
+    threshold: bool = True,
+    approve: bool = False,
+    game_urls: list[str] | None = None,
+) -> list[tuple[str, str, str, str]]:
+    """
+    Scan box scores for `target_date` (YYYY-MM-DD, defaults to today),
+    find significant performances, and kick off video generation for each
+    new one via your existing pipeline(). Also writes a thumbnail per
+    queued performance to THUMB_DIR. When `game_urls` is supplied, only
+    process those games. Returns the jobs that were run.
+
+    `ffmpeg_path` overrides config.FFMPEG_PATH for this run if given.
+    """
+    target_date = target_date or date_cls.today().isoformat()
+
+    state = _load_state()
+    state.setdefault(target_date, [])
+    already_done = set(state[target_date])
+
+    driver = _new_driver()
     # driver.maximize_window()
 
     jobs: list[tuple[str, str, str, str]] = []
@@ -169,6 +195,18 @@ def run_agent(
             driver,
             target_date,
         )
+        if game_urls is not None:
+            available_urls = set(boxscore_urls)
+            selected_urls = set(game_urls)
+            unavailable_urls = selected_urls - available_urls
+            if unavailable_urls:
+                raise ValueError(
+                    "Selected games are not available for "
+                    f"{target_date}: {', '.join(sorted(unavailable_urls))}"
+                )
+            boxscore_urls = [
+                url for url in boxscore_urls if url in selected_urls
+            ]
 
         print(
             f"[{target_date}] "
