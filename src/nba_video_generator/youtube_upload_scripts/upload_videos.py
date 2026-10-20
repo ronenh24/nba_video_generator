@@ -40,9 +40,10 @@ RETRIABLE_EXCEPTIONS = (
 RETRIABLE_STATUS_CODES = [500, 502, 503, 504]
 
 # Exit code meaning "the video uploaded fine, but the thumbnail did not".
-# The batch script treats this as an uploaded video (so it is not uploaded
-# twice) but keeps the thumbnail file around.
 EXIT_THUMBNAIL_FAILED = 2
+
+# Exit code meaning "the video uploaded fine, but adding to playlists failed".
+EXIT_PLAYLIST_FAILED = 3
 
 # YouTube's limit for custom thumbnails.
 MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024
@@ -52,12 +53,13 @@ MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024
 # YouTube API configuration
 # ---------------------------------------------------------------------------
 
-CLIENT_SECRETS_FILE = "client_secrets.json"
+CLIENT_SECRETS_FILE = r"C:\Users\ronen\Videos\nba_videos\client_secrets.json"
 
 # OAuth scope required to upload videos. This scope is also accepted by
-# thumbnails.set, so no extra scope (or re-login) is needed for thumbnails.
+# thumbnails.set and playlistItems.insert.
 YOUTUBE_UPLOAD_SCOPE = [
-    "https://www.googleapis.com/auth/youtube.upload"
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube"  # <-- Add this line
 ]
 
 YOUTUBE_API_SERVICE_NAME = "youtube"
@@ -66,23 +68,6 @@ YOUTUBE_API_VERSION = "v3"
 # OAuth token will be saved here after the first successful login.
 TOKEN_FILE = "youtube-oauth2.json"
 
-MISSING_CLIENT_SECRETS_MESSAGE = """
-WARNING: Please configure OAuth 2.0.
-
-This program requires a client_secrets.json file.
-
-Create OAuth 2.0 credentials in the Google Cloud Console:
-https://console.cloud.google.com/
-
-Make sure the YouTube Data API v3 is enabled for your project.
-
-Download the OAuth client JSON file and rename it:
-
-    client_secrets.json
-
-Then place it in the same directory as this program.
-"""
-
 VALID_PRIVACY_STATUSES = ("public", "private", "unlisted")
 
 
@@ -90,7 +75,10 @@ VALID_PRIVACY_STATUSES = ("public", "private", "unlisted")
 # Authentication
 # ---------------------------------------------------------------------------
 
-def get_authenticated_service():
+def get_authenticated_service(
+    client_secrets_file: str = CLIENT_SECRETS_FILE,
+    token_file: str = TOKEN_FILE,
+):
     """
     Authenticate the user with Google OAuth 2.0 and return
     an authenticated YouTube API service.
@@ -99,10 +87,10 @@ def get_authenticated_service():
     credentials = None
 
     # Load an existing token if one exists.
-    if os.path.exists(TOKEN_FILE):
+    if os.path.exists(token_file):
         try:
             credentials = Credentials.from_authorized_user_file(
-                TOKEN_FILE,
+                token_file,
                 YOUTUBE_UPLOAD_SCOPE
             )
         except Exception as e:
@@ -122,16 +110,15 @@ def get_authenticated_service():
 
     # If we don't have valid credentials, start OAuth login.
     if not credentials or not credentials.valid:
-        if not os.path.exists(CLIENT_SECRETS_FILE):
-            exit(
-                MISSING_CLIENT_SECRETS_MESSAGE
-                % os.path.abspath(CLIENT_SECRETS_FILE)
+        if not os.path.isfile(client_secrets_file):
+            raise FileNotFoundError(
+                f"Client secrets file not found: {client_secrets_file}"
             )
 
         print("Starting Google OAuth authentication...")
 
         flow = InstalledAppFlow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE,
+            client_secrets_file,
             YOUTUBE_UPLOAD_SCOPE
         )
 
@@ -142,14 +129,19 @@ def get_authenticated_service():
         )
 
         # Save credentials for the next run.
-        with open(TOKEN_FILE, "w", encoding="utf-8") as token:
+        token_directory = os.path.dirname(os.path.abspath(token_file))
+        os.makedirs(token_directory, exist_ok=True)
+        token_fd = os.open(
+            token_file,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            0o600,
+        )
+        with os.fdopen(token_fd, "w", encoding="utf-8") as token:
             token.write(credentials.to_json())
 
-        print("OAuth credentials saved to:", TOKEN_FILE)
+        print("OAuth credentials saved.")
 
     # Build the YouTube API service.
-    #
-    # google-auth credentials can be passed directly to build().
     youtube = build(
         YOUTUBE_API_SERVICE_NAME,
         YOUTUBE_API_VERSION,
@@ -189,7 +181,6 @@ def initialize_upload(youtube, options):
         },
     }
 
-    # Only include tags if tags were provided.
     if tags:
         body["snippet"]["tags"] = tags
 
@@ -197,24 +188,23 @@ def initialize_upload(youtube, options):
     print("Video information:")
     print("  File:       ", options.file)
     print("  Title:      ", options.title)
-    # print("  Description:", options.description)
     print("  Category:   ", options.category)
     print("  Privacy:    ", options.privacyStatus)
 
     if options.thumbnail:
         print("  Thumbnail:  ", options.thumbnail)
 
+    if options.playlists:
+        print("  Playlists:  ", ", ".join(options.playlists))
+
     if tags:
         print("  Tags:       ", ", ".join(tags))
 
     print()
 
-    # Create the upload request.
     insert_request = youtube.videos().insert(
         part=",".join(body.keys()),
         body=body,
-
-        # Resumable upload allows interrupted uploads to continue.
         media_body=MediaFileUpload(
             options.file,
             chunksize=1024 * 1024,
@@ -252,7 +242,6 @@ def resumable_upload(insert_request):
                     status.total_size
                 )
 
-                # Only print when the percentage changes.
                 if progress != last_progress:
                     print(
                         f"\rUpload progress: {progress}%",
@@ -262,7 +251,7 @@ def resumable_upload(insert_request):
                     last_progress = progress
 
             if response is not None:
-                print()  # Move to the next line after progress.
+                print()
 
                 if "id" in response:
                     print("Video uploaded successfully!")
@@ -321,8 +310,7 @@ def resumable_upload(insert_request):
 def set_thumbnail(youtube, video_id, thumbnail_path):
     """
     Set a custom thumbnail on an already-uploaded video.
-    Returns True on success. Never raises: the video is already live at
-    this point, so a thumbnail problem must not look like a failed upload.
+    Returns True on success.
     """
 
     if not os.path.isfile(thumbnail_path):
@@ -368,6 +356,50 @@ def set_thumbnail(youtube, video_id, thumbnail_path):
 
 
 # ---------------------------------------------------------------------------
+# Playlist Management
+# ---------------------------------------------------------------------------
+
+def add_to_playlists(youtube, video_id, playlist_ids):
+    """
+    Add a video to one or more playlists.
+    playlist_ids is a list of strings.
+    Returns True if all additions succeeded, False otherwise.
+    """
+    if not playlist_ids:
+        return True
+
+    print(f"Adding video to {len(playlist_ids)} playlist(s)...")
+    success = True
+    for playlist_id in playlist_ids:
+        try:
+            youtube.playlistItems().insert(
+                part="snippet",
+                body={
+                    "snippet": {
+                        "playlistId": playlist_id,
+                        "resourceId": {
+                            "kind": "youtube#video",
+                            "videoId": video_id
+                        }
+                    }
+                }
+            ).execute()
+            print(f"Added to playlist: {playlist_id}")
+        except HttpError as e:
+            print(
+                f"Failed to add video to playlist {playlist_id} "
+                f"(HTTP {e.resp.status}):"
+            )
+            print(e.content)
+            success = False
+        except Exception as e:
+            print(f"Failed to add video to playlist {playlist_id}: {e}")
+            success = False
+
+    return success
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -385,6 +417,18 @@ def main():
     )
 
     parser.add_argument(
+        "--client-secrets",
+        default=CLIENT_SECRETS_FILE,
+        help="Google OAuth client secrets JSON file"
+    )
+
+    parser.add_argument(
+        "--token-file",
+        default=TOKEN_FILE,
+        help="Path to the saved OAuth token JSON file"
+    )
+
+    parser.add_argument(
         "--title",
         default="Test Title",
         help="Video title"
@@ -399,11 +443,7 @@ def main():
     parser.add_argument(
         "--category",
         default="17",
-        help=(
-            "Numeric YouTube video category. "
-            "17 = Sports. "
-            "See YouTube video categories documentation."
-        )
+        help="Numeric YouTube video category. 17 = Sports."
     )
 
     parser.add_argument(
@@ -425,55 +465,56 @@ def main():
         help="Optional JPG/PNG (max 2 MB) to use as the custom thumbnail"
     )
 
+    parser.add_argument(
+        "--playlists",
+        nargs='+',
+        type=str,
+        default=None,
+        help="Optional list of YouTube playlist IDs to add the video to (e.g., --playlists PL1 PL2)"
+    )
+
     args = parser.parse_args()
 
-    # Verify that the video exists.
     if not os.path.isfile(args.file):
-        raise SystemExit(
-            "Please specify a valid video file using "
-            "--file=FILE"
-        )
+        raise SystemExit("Please specify a valid video file using --file=FILE")
 
-    # Authenticate.
-    youtube = get_authenticated_service()
+    youtube = get_authenticated_service(
+        args.client_secrets,
+        args.token_file,
+    )
 
     try:
-        # Upload.
-        response = initialize_upload(
-            youtube,
-            args
-        )
+        response = initialize_upload(youtube, args)
 
     except HttpError as e:
-
         print()
-        print(
-            "An HTTP error %d occurred:"
-            % e.resp.status
-        )
+        print("An HTTP error %d occurred:" % e.resp.status)
         print(e.content)
-
         sys.exit(1)
 
     except KeyboardInterrupt:
-
         print()
         print("Upload cancelled by user.")
         sys.exit(1)
 
     except Exception as e:
-
         print()
         print("An error occurred:")
         print(e)
-
         sys.exit(1)
 
-    # The video is live. A thumbnail failure gets its own exit code so the
-    # caller doesn't treat the whole upload as failed and re-upload it.
+    playlist_success = True
+    if args.playlists:
+        playlist_success = add_to_playlists(youtube, response["id"], args.playlists)
+
+    thumbnail_success = True
     if args.thumbnail:
-        if not set_thumbnail(youtube, response["id"], args.thumbnail):
-            sys.exit(EXIT_THUMBNAIL_FAILED)
+        thumbnail_success = set_thumbnail(youtube, response["id"], args.thumbnail)
+
+    if not playlist_success:
+        sys.exit(EXIT_PLAYLIST_FAILED)
+    if not thumbnail_success:
+        sys.exit(EXIT_THUMBNAIL_FAILED)
 
 
 if __name__ == "__main__":

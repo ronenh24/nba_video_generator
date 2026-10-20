@@ -13,6 +13,7 @@ import uuid
 import webbrowser
 from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -64,7 +65,7 @@ _PAGE = r"""<!doctype html>
     .section-note { color: var(--muted); font-size: 12px; }
     .layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(290px, .8fr); gap: 18px; align-items: start; }
     .card { background: linear-gradient(145deg, #16223a, #101827); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
-    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
     .tab { appearance: none; border: 1px solid var(--line); color: var(--muted); background: #10151d; border-radius: 10px; padding: 11px 8px; font: inherit; font-size: 13px; cursor: pointer; }
     .tab[aria-selected="true"] { background: #172f55; border-color: #3979d4; color: #a9ccff; }
     .form-panel[hidden] { display: none; }
@@ -80,6 +81,10 @@ _PAGE = r"""<!doctype html>
     .remove-row { height: 38px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: #0d1219; cursor: pointer; font-size: 18px; }
     .row-actions { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 18px; }
     .text-button { color: #85b5ff; background: none; border: 0; cursor: pointer; font: inherit; font-size: 12px; padding: 4px 0; }
+    .picker { flex: 0 0 auto; border: 1px solid #385780; border-radius: 9px; padding: 10px 12px; color: #a9ccff; background: #14233a; font: inherit; font-size: 12px; cursor: pointer; }
+    .picker-row { display: flex; gap: 8px; align-items: end; }
+    .picker-row > div { flex: 1; min-width: 0; }
+    .safety-note { border: 1px solid #33486a; border-radius: 9px; padding: 11px 12px; background: #101c30; color: #bac9df; font-size: 12px; margin-top: 16px; }
     .checkbox { display: flex; align-items: center; gap: 9px; margin: 16px 0 2px; color: #c0cad8; font-size: 13px; }
     .checkbox input { width: 15px; height: 15px; accent-color: var(--blue); }
     .button { background: var(--blue); color: #f7faff; border: 0; border-radius: 9px; padding: 11px 17px; font: inherit; font-weight: 800; cursor: pointer; }
@@ -99,6 +104,7 @@ _PAGE = r"""<!doctype html>
     @media (max-width: 760px) {
       .shell { width: min(100% - 24px, 560px); padding-top: 22px; }
       header { margin-bottom: 38px; } .layout { grid-template-columns: 1fr; }
+      .tabs { grid-template-columns: repeat(2, 1fr); }
       .log-card { position: static; min-height: 0; } .log { height: 220px; }
       .player-row { grid-template-columns: 1fr 1fr; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
       .player-row .remove-row { grid-column: 2; justify-self: end; width: 34px; }
@@ -126,6 +132,7 @@ _PAGE = r"""<!doctype html>
           <button class="tab" role="tab" aria-selected="true" data-panel="pipeline">Player pipeline</button>
           <button class="tab" role="tab" aria-selected="false" data-panel="agent">Daily agent</button>
           <button class="tab" role="tab" aria-selected="false" data-panel="shorts">Top plays Shorts</button>
+          <button class="tab" role="tab" aria-selected="false" data-panel="upload">YouTube upload</button>
         </div>
 
         <form id="pipeline" class="form-panel">
@@ -162,6 +169,32 @@ _PAGE = r"""<!doctype html>
             <input id="shorts-ffmpeg" name="ffmpeg_path" autocomplete="off">
           </div>
           <div class="run-row"><span class="status" id="shorts-status">Ready to run</span><button class="button" type="submit">Make Shorts&nbsp; →</button></div>
+        </form>
+
+        <form id="upload" class="form-panel" hidden>
+          <div class="picker-row">
+            <div><label for="upload-folder">Folder containing videos</label><input id="upload-folder" name="folder" readonly required placeholder="Choose the folder with MP4 videos"></div>
+            <button class="picker" type="button" data-picker="folder">Choose folder</button>
+          </div>
+          <p class="hint">MP4 files in this folder will be uploaded. Matching descriptions and thumbnails are used when present.</p>
+          <div class="picker-row ffmpeg">
+            <div><label for="client-secrets">Google client_secrets.json</label><input id="client-secrets" name="client_secrets" readonly required placeholder="Choose your OAuth client JSON"></div>
+            <button class="picker" type="button" data-picker="file">Choose file</button>
+          </div>
+          <div class="field-grid ffmpeg">
+            <div>
+              <label for="upload-privacy">YouTube visibility</label>
+              <select id="upload-privacy" name="privacy">
+                <option value="private" selected>Private (recommended)</option>
+                <option value="unlisted">Unlisted</option>
+                <option value="public">Public</option>
+              </select>
+            </div>
+            <div><label for="upload-playlists">Playlist IDs (optional)</label><input id="upload-playlists" name="playlists" value="PLMUQgUVnh3jw" placeholder="Comma-separated playlist IDs"></div>
+          </div>
+          <label class="checkbox"><input type="checkbox" name="delete_uploaded"> Delete local videos, descriptions, and thumbnails after successful uploads</label>
+          <div class="safety-note">Uploads are real YouTube uploads; every MP4 is uploaded again if you rerun this workflow. The default visibility is private, and local files are kept unless you opt in to deletion. First-time use opens Google sign-in in your browser.</div>
+          <div class="run-row"><span class="status" id="upload-status">Ready to run</span><button class="button" type="submit">Upload videos&nbsp; →</button></div>
         </form>
       </section>
 
@@ -207,6 +240,26 @@ _PAGE = r"""<!doctype html>
       document.querySelectorAll('.form-panel').forEach(panel => panel.hidden = panel.id !== tab.dataset.panel);
     }));
 
+    document.querySelectorAll('[data-picker]').forEach(button => button.addEventListener('click', async () => {
+      const kind = button.dataset.picker;
+      const field = document.getElementById(kind === 'file' ? 'client-secrets' : 'upload-folder');
+      button.disabled = true;
+      try {
+        const response = await fetch('/api/select-path', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({kind})
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || `Picker failed (${response.status})`);
+        if (body.path) field.value = body.path;
+      } catch (error) {
+        document.getElementById('upload-status').className = 'status error';
+        document.getElementById('upload-status').textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    }));
+
     let pollTimer;
     const logEl = document.getElementById('log');
     const infoEl = document.getElementById('job-info');
@@ -227,7 +280,7 @@ _PAGE = r"""<!doctype html>
       }
     }
 
-    const labels = {pipeline: 'Player pipeline', agent: 'Daily agent', shorts: 'Top plays Shorts'};
+    const labels = {pipeline: 'Player pipeline', agent: 'Daily agent', shorts: 'Top plays Shorts', upload: 'YouTube upload'};
     document.querySelectorAll('.form-panel').forEach(form => form.addEventListener('submit', async event => {
       event.preventDefault();
       const button = form.querySelector('.button');
@@ -235,12 +288,18 @@ _PAGE = r"""<!doctype html>
       button.disabled = true;
       status.className = 'status running'; status.textContent = 'Starting…';
       logEl.textContent = 'Submitting job…';
-      const ffmpeg_path = form.querySelector('[name="ffmpeg_path"]').value.trim();
-      const payload = {operation: form.id, ffmpeg_path};
+      const payload = {operation: form.id};
+      if (form.id !== 'upload') payload.ffmpeg_path = form.querySelector('[name="ffmpeg_path"]').value.trim();
       if (form.id === 'pipeline') {
         payload.players = [...players.querySelectorAll('.player-row')].map(row => Object.fromEntries(
           [...row.querySelectorAll('[data-field]')].map(input => [input.dataset.field, input.value.trim()])
         ));
+      } else if (form.id === 'upload') {
+        payload.folder = form.querySelector('[name="folder"]').value;
+        payload.client_secrets = form.querySelector('[name="client_secrets"]').value;
+        payload.privacy = form.querySelector('[name="privacy"]').value;
+        payload.playlists = form.querySelector('[name="playlists"]').value.split(',').map(value => value.trim()).filter(Boolean);
+        payload.delete_uploaded = form.querySelector('[name="delete_uploaded"]').checked;
       } else {
         payload.date = form.querySelector('[name="date"]').value;
         if (form.id === 'agent') payload.threshold = form.querySelector('[name="threshold"]').checked;
@@ -279,7 +338,7 @@ def _validate_payload(payload: Any) -> dict[str, Any]:
         raise ValueError("The request body must be a JSON object.")
 
     operation = payload.get("operation")
-    if operation not in {"pipeline", "agent", "shorts"}:
+    if not isinstance(operation, str) or operation not in {"pipeline", "agent", "shorts", "upload"}:
         raise ValueError("Choose a valid workflow.")
 
     ffmpeg_path = payload.get("ffmpeg_path", "")
@@ -312,13 +371,75 @@ def _validate_payload(payload: Any) -> dict[str, Any]:
                 raise ValueError(f"Player row {index}: end date must not be before start date.")
             jobs.append((player.strip(), start, end, team.strip().lower()))
         validated["players"] = jobs
-    else:
+    elif operation in {"agent", "shorts"}:
         validated["date"] = _valid_date(payload.get("date"), "Game date")
         if operation == "agent":
             threshold = payload.get("threshold", True)
             if not isinstance(threshold, bool):
                 raise ValueError("Performance thresholds must be enabled or disabled.")
             validated["threshold"] = threshold
+    else:
+        folder = payload.get("folder")
+        client_secrets = payload.get("client_secrets")
+        if not isinstance(folder, str) or len(folder) > 4096:
+            raise ValueError("Choose a valid folder containing videos.")
+        if not isinstance(client_secrets, str) or len(client_secrets) > 4096:
+            raise ValueError("Choose a valid client_secrets.json file.")
+        try:
+            video_folder = Path(folder).expanduser().resolve(strict=True)
+            secrets_file = Path(client_secrets).expanduser().resolve(strict=True)
+        except (OSError, ValueError) as exc:
+            raise ValueError("The selected folder or client secrets file does not exist.") from exc
+        if not video_folder.is_dir():
+            raise ValueError("The selected upload path is not a folder.")
+        try:
+            has_videos = any(
+                path.is_file() and path.suffix.lower() == ".mp4"
+                for path in video_folder.iterdir()
+            )
+        except OSError as exc:
+            raise ValueError("Could not read the selected upload folder.") from exc
+        if not has_videos:
+            raise ValueError("The selected folder does not contain any MP4 videos.")
+        if not secrets_file.is_file():
+            raise ValueError("The selected client secrets path is not a file.")
+        try:
+            secrets_size = secrets_file.stat().st_size
+        except OSError as exc:
+            raise ValueError("Could not read the selected client secrets file.") from exc
+        if secrets_size > 1024 * 1024:
+            raise ValueError("client_secrets.json must be no larger than 1 MB.")
+        try:
+            secrets = json.loads(secrets_file.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Could not read client_secrets.json as valid JSON.") from exc
+        client_config = None
+        if isinstance(secrets, dict):
+            client_config = secrets.get("installed") or secrets.get("web")
+        if not isinstance(client_config, dict) or not all(
+            isinstance(client_config.get(key), str)
+            for key in ("client_id", "client_secret", "auth_uri", "token_uri")
+        ):
+            raise ValueError("The selected JSON is not a valid Google OAuth client secrets file.")
+        privacy = payload.get("privacy", "private")
+        if not isinstance(privacy, str):
+            raise ValueError("Choose private, unlisted, or public visibility.")
+        if privacy not in {"private", "unlisted", "public"}:
+            raise ValueError("Choose private, unlisted, or public visibility.")
+        playlists = payload.get("playlists", [])
+        if (not isinstance(playlists, list) or len(playlists) > 20
+                or any(not isinstance(item, str) or not re.fullmatch(r"[\w-]{1,128}", item) for item in playlists)):
+            raise ValueError("Playlist IDs must be a list of up to 20 valid IDs.")
+        delete_uploaded = payload.get("delete_uploaded", False)
+        if not isinstance(delete_uploaded, bool):
+            raise ValueError("Local-file deletion must be enabled or disabled.")
+        validated.update({
+            "folder": str(video_folder),
+            "client_secrets": str(secrets_file),
+            "privacy": privacy,
+            "playlists": playlists,
+            "delete_uploaded": delete_uploaded,
+        })
     return validated
 
 
@@ -367,12 +488,22 @@ def _run_job(job_id: str, payload: dict[str, Any]) -> None:
                     threshold=payload["threshold"],
                     approve=False,
                 )
-            else:
+            elif operation == "shorts":
                 from nba_video_generator.nba_shorts import make_shorts_for_date
 
                 result = make_shorts_for_date(
                     payload["date"],
                     payload["ffmpeg_path"],
+                )
+            else:
+                from nba_video_generator.youtube_upload_scripts.process_nba_videos import upload_videos
+
+                result = upload_videos(
+                    payload["folder"],
+                    payload["client_secrets"],
+                    payload["playlists"],
+                    payload["privacy"],
+                    payload["delete_uploaded"],
                 )
             print(f"\nWorkflow completed. Result: {result!r}")
         status = "succeeded"
@@ -413,7 +544,31 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _is_local_request(self, require_origin: bool = False) -> bool:
+        host = self.headers.get("Host", "").lower()
+        expected_port = self.server.server_port
+        if host not in {
+            f"127.0.0.1:{expected_port}",
+            f"localhost:{expected_port}",
+        }:
+            return False
+        origin = self.headers.get("Origin")
+        if origin is None:
+            return not require_origin
+        try:
+            parsed = urlparse(origin)
+            return (
+                parsed.scheme == "http"
+                and parsed.hostname in {"127.0.0.1", "localhost"}
+                and parsed.port == expected_port
+            )
+        except ValueError:
+            return False
+
     def do_GET(self) -> None:
+        if not self._is_local_request():
+            self._send_json(403, {"error": "Requests must use the local dashboard address."})
+            return
         path = urlparse(self.path).path
         if path == "/":
             page = _PAGE.replace("__FFMPEG_JSON__", json.dumps(FFMPEG_PATH))
@@ -440,6 +595,45 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         global _active_job_id
+        if not self._is_local_request(require_origin=True):
+            self._send_json(403, {"error": "Requests must originate from the local dashboard."})
+            return
+        if urlparse(self.path).path == "/api/select-path":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 < length <= 1024:
+                    raise ValueError("Invalid picker request.")
+                request = json.loads(self.rfile.read(length))
+                kind = request.get("kind") if isinstance(request, dict) else None
+                if not isinstance(kind, str) or kind not in {"file", "folder"}:
+                    raise ValueError("Choose a file or a folder.")
+                import tkinter as tk
+                from tkinter import filedialog
+
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                try:
+                    if kind == "file":
+                        selected = filedialog.askopenfilename(
+                            parent=root,
+                            title="Select Google client_secrets.json",
+                            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+                        )
+                    else:
+                        selected = filedialog.askdirectory(
+                            parent=root,
+                            title="Select the folder containing videos",
+                            mustexist=True,
+                        )
+                finally:
+                    root.destroy()
+                self._send_json(200, {"path": str(Path(selected).resolve()) if selected else ""})
+            except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+                self._send_json(400, {"error": str(exc)})
+            except Exception as exc:
+                self._send_json(500, {"error": f"Could not open the system picker: {exc}"})
+            return
         if urlparse(self.path).path != "/api/jobs":
             self._send_json(404, {"error": "Not found."})
             return
@@ -448,7 +642,7 @@ class _Handler(BaseHTTPRequestHandler):
             if not 0 < length <= _MAX_REQUEST_BYTES:
                 raise ValueError("Request size must be between 1 byte and 64 KB.")
             payload = _validate_payload(json.loads(self.rfile.read(length)))
-        except (ValueError, json.JSONDecodeError) as exc:
+        except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             self._send_json(400, {"error": str(exc)})
             return
 
@@ -458,6 +652,7 @@ class _Handler(BaseHTTPRequestHandler):
             "pipeline": "Player pipeline",
             "agent": "Daily agent",
             "shorts": "Top plays Shorts",
+            "upload": "YouTube upload",
         }
         job = {
             "id": job_id,
