@@ -140,7 +140,10 @@ _PAGE = r"""<!doctype html>
           <div class="row-actions"><button class="text-button" type="button" id="add-player">＋ Add player</button><span class="hint">Up to 20 players</span></div>
           <div class="ffmpeg">
             <label for="pipeline-ffmpeg">FFmpeg executable</label>
-            <input id="pipeline-ffmpeg" name="ffmpeg_path" autocomplete="off">
+            <div class="picker-row">
+              <input id="pipeline-ffmpeg" name="ffmpeg_path" readonly>
+              <button class="picker" type="button" data-picker="ffmpeg" data-target="pipeline-ffmpeg">Choose file</button>
+            </div>
           </div>
           <div class="run-row"><span class="status" id="pipeline-status">Ready to run</span><button class="button" type="submit">Run pipeline&nbsp; →</button></div>
         </form>
@@ -153,7 +156,10 @@ _PAGE = r"""<!doctype html>
           <label class="checkbox"><input type="checkbox" name="threshold" checked> Apply performance thresholds</label>
           <div class="ffmpeg">
             <label for="agent-ffmpeg">FFmpeg executable</label>
-            <input id="agent-ffmpeg" name="ffmpeg_path" autocomplete="off">
+            <div class="picker-row">
+              <input id="agent-ffmpeg" name="ffmpeg_path" readonly>
+              <button class="picker" type="button" data-picker="ffmpeg" data-target="agent-ffmpeg">Choose file</button>
+            </div>
             <p class="hint">Videos and thumbnails are generated using the agent's configured output folders.</p>
           </div>
           <div class="run-row"><span class="status" id="agent-status">Ready to run</span><button class="button" type="submit">Run daily agent&nbsp; →</button></div>
@@ -166,7 +172,10 @@ _PAGE = r"""<!doctype html>
           </div>
           <div class="ffmpeg">
             <label for="shorts-ffmpeg">FFmpeg executable</label>
-            <input id="shorts-ffmpeg" name="ffmpeg_path" autocomplete="off">
+            <div class="picker-row">
+              <input id="shorts-ffmpeg" name="ffmpeg_path" readonly>
+              <button class="picker" type="button" data-picker="ffmpeg" data-target="shorts-ffmpeg">Choose file</button>
+            </div>
           </div>
           <div class="run-row"><span class="status" id="shorts-status">Ready to run</span><button class="button" type="submit">Make Shorts&nbsp; →</button></div>
         </form>
@@ -242,7 +251,9 @@ _PAGE = r"""<!doctype html>
 
     document.querySelectorAll('[data-picker]').forEach(button => button.addEventListener('click', async () => {
       const kind = button.dataset.picker;
-      const field = document.getElementById(kind === 'file' ? 'client-secrets' : 'upload-folder');
+      const field = document.getElementById(button.dataset.target || (
+        kind === 'file' ? 'client-secrets' : 'upload-folder'
+      ));
       button.disabled = true;
       try {
         const response = await fetch('/api/select-path', {
@@ -605,8 +616,8 @@ class _Handler(BaseHTTPRequestHandler):
                     raise ValueError("Invalid picker request.")
                 request = json.loads(self.rfile.read(length))
                 kind = request.get("kind") if isinstance(request, dict) else None
-                if not isinstance(kind, str) or kind not in {"file", "folder"}:
-                    raise ValueError("Choose a file or a folder.")
+                if not isinstance(kind, str) or kind not in {"file", "folder", "ffmpeg"}:
+                    raise ValueError("Choose a file, folder, or FFmpeg executable.")
                 import tkinter as tk
                 from tkinter import filedialog
 
@@ -614,11 +625,19 @@ class _Handler(BaseHTTPRequestHandler):
                 root.withdraw()
                 root.attributes("-topmost", True)
                 try:
-                    if kind == "file":
+                    if kind in {"file", "ffmpeg"}:
                         selected = filedialog.askopenfilename(
                             parent=root,
-                            title="Select Google client_secrets.json",
-                            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+                            title=(
+                                "Select FFmpeg executable"
+                                if kind == "ffmpeg"
+                                else "Select Google client_secrets.json"
+                            ),
+                            filetypes=(
+                                [("FFmpeg executable", "ffmpeg.exe"), ("Executable files", "*.exe"), ("All files", "*.*")]
+                                if kind == "ffmpeg"
+                                else [("JSON files", "*.json"), ("All files", "*.*")]
+                            ),
                         )
                     else:
                         selected = filedialog.askdirectory(
