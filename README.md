@@ -54,7 +54,7 @@ ollama pull lfm2.5-thinking:1.2b
 The full play videos can be made from the reliable play by play rather than the unreliable box score.
 
 ```python
-from nba_video_generator.beta_search import pipeline
+from nba_video_generator.src import pipeline
 
 pipeline(
     [
@@ -69,7 +69,7 @@ pipeline(
 A date range can be specified as well.
 
 ```python
-from nba_video_generator.beta_search import pipeline
+from nba_video_generator.src import pipeline
 
 pipeline(
     [
@@ -93,13 +93,13 @@ A video of the process is provided below.
 Makes videos of the LLM determined best player performances of specified date (default today).
 
 ```python
-from nba_video_generator.run_agent import nba_agent
+from nba_video_generator.nba_agent import run_agent
 
-date = "2025-12-25"
+date = "2026-06-10"
 
 ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe"
 
-nba_agent(date, ffmpeg_path)
+run_agent(date, ffmpeg_path)
 ```
 
 ### Process
@@ -118,7 +118,7 @@ Makes shorts of the top 4 plays from each of specified date (default today).
 ```python
 from nba_video_generator.nba_shorts import make_shorts_for_date
 
-date = "2025-12-25"
+date = "2016-06-19"
 
 ffmpeg_path = r"C:\Users\ronen\Documents\Projects\nba_video_generator\src\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe"
 

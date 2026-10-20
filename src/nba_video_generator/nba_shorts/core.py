@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
+from nba_video_generator.src.remove_duplicates import VideoDeduper
+
 from .browser import download_plays, open_browser, safe_name
 from .config import Config
 from .games import discover_games
@@ -19,8 +21,6 @@ from .playbyplay import (
 from .processed import is_processed, load_processed, mark_processed
 from .scoring import Play, pick_plays
 from .video import compile_clips, need_ffmpeg, to_vertical
-
-from nba_video_generator.src.remove_duplicates import VideoDeduper
 
 
 @dataclass

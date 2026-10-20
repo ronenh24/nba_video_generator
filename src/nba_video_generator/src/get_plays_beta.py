@@ -147,6 +147,8 @@ def get_plays(
                     desc_raw = row.find_element(By.XPATH, DESC_TAG).text
                     if not _ball_exception(last_name, desc_raw):
                         continue
+                    if desc_raw.startswith("SUB"):
+                        continue
                     desc = desc_raw.lower()
                     play_time = clock_to_sec(
                         row.find_element(By.XPATH, TIME_TAG).text

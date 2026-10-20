@@ -11,10 +11,10 @@ from datetime import datetime, timedelta
 import shutil
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from nba_video_generator.src.get_pbp_beta import get_pbp
-from nba_video_generator.src.get_plays_beta import get_plays
-from nba_video_generator.src.download_plays_beta import download_plays
-from nba_video_generator.src.write_plays_beta import write_plays
+from .get_pbp_beta import get_pbp
+from .get_plays_beta import get_plays
+from .download_plays_beta import download_plays
+from .write_plays_beta import write_plays
 
 
 BASE_URL = "https://www.nba.com/games?date="

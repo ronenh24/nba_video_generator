@@ -19,7 +19,7 @@ from .thumbnail import attach_headshot, make_thumbnail
 from .team_logo import attach_logo
 
 # Your existing video-generation pipeline (unchanged).
-from nba_video_generator.beta_search import pipeline
+from nba_video_generator.src.beta_search import pipeline
 
 # Where generated thumbnails are written.
 THUMB_DIR = "thumbnails"
@@ -126,9 +126,9 @@ def _make_player_abbreviations(players) -> dict[tuple[str, str], str]:
     return abbreviations
 
 
-def run_for_date(
+def run_agent(
     target_date: str | None = None,
-    ffmpeg_path: str | None = None,
+    ffmpeg_path: str = FFMPEG_PATH,
     threshold: bool = True,
     approve: bool = False,
 ) -> list[tuple[str, str, str, str]]:
@@ -141,7 +141,6 @@ def run_for_date(
     `ffmpeg_path` overrides config.FFMPEG_PATH for this run if given.
     """
     target_date = target_date or date_cls.today().isoformat()
-    ffmpeg_path = ffmpeg_path or FFMPEG_PATH
 
     state = _load_state()
     state.setdefault(target_date, [])
