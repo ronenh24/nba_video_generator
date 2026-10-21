@@ -26,101 +26,123 @@ FFMPEG_PATH = (
 
 def search(driver: webdriver, last_name: str, date_start: str, date_end: str,
            team: str, ffmpeg_path: str = FFMPEG_PATH,
-           preset: str = "veryfast", full_name: str | None = None):
+           preset: str = "veryfast", full_name: str | None = None,
+           output_dir: str = "."):
     """Makes video for player and date(s)."""
     if date_end is None:
         date_end = date_start
 
+    output_dir = os.path.abspath(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
     time_secs = 0
     desc_txt = None
-    base_name = last_name.lower()
-
+    base_name = os.path.join(output_dir, last_name.lower())
+    file_list_path = os.path.join(output_dir, "file_list.txt")
     current_date = datetime.strptime(date_start, "%Y-%m-%d")
     end_date = datetime.strptime(date_end, "%Y-%m-%d")
-
-    if date_start != date_end:
-        f = open("file_list.txt", "w", encoding="utf-8")
-        desc_txt = open(
-            last_name + " " + date_start + " " + date_end +
-            " description.txt", "w", encoding="utf-8")
-        titles = []
-
-    while current_date <= end_date:
-        date = current_date.strftime("%Y-%m-%d")
-        data_is_home_team, pbp_url = get_pbp(driver, BASE_URL, date, team)
-
-        if pbp_url is not None:
-            title, result = get_plays(
-                driver, pbp_url, last_name, data_is_home_team
-            )
-
-            if full_name is not None:
-                title = full_name + title
-            else:
-                title = last_name + title
-
-            if len(result) > 0:
-                try:
-                    shutil.rmtree(base_name)
-                except Exception:
-                    pass
-
-                os.makedirs(base_name)
-
-                player_urls = download_plays(driver, base_name, result)
-
-                time_secs, desc_txt = write_plays(
-                    title,
-                    base_name,
-                    player_urls,
-                    ffmpeg_path,
-                    preset,
-                    time_secs,
-                    desc_txt,
-                )
-
-                if date_start != date_end:
-                    f.write(f"file '{os.path.abspath(title + '.mp4')}'\n")
-                    titles.append(os.path.abspath(title + ".mp4"))
-
-        current_date += timedelta(days=1)
+    file_list = None
+    file_list_created = False
 
     try:
-        shutil.rmtree(base_name)
-    except Exception:
-        pass
+        if date_start != date_end:
+            file_list = open(file_list_path, "w", encoding="utf-8")
+            file_list_created = True
+            desc_txt = open(
+                os.path.join(
+                    output_dir,
+                    last_name + " " + date_start + " " + date_end +
+                    " description.txt",
+                ),
+                "w",
+                encoding="utf-8",
+            )
+            titles = []
 
-    if desc_txt is not None:
-        desc_txt.close()
+        while current_date <= end_date:
+            date = current_date.strftime("%Y-%m-%d")
+            data_is_home_team, pbp_url = get_pbp(driver, BASE_URL, date, team)
 
-    if date_start != date_end:
-        f.close()
+            if pbp_url is not None:
+                title, result = get_plays(
+                    driver, pbp_url, last_name, data_is_home_team
+                )
 
-        output_path = last_name + " " + date_start + " " + date_end + \
-            " Full Play.mp4"
+                if full_name is not None:
+                    title = full_name + title
+                else:
+                    title = last_name + title
 
-        if os.path.exists(output_path):
-            os.remove(output_path)
+                if len(result) > 0:
+                    try:
+                        shutil.rmtree(base_name)
+                    except Exception:
+                        pass
 
-        subprocess.run([
-            ffmpeg_path, "-f", "concat", "-safe", "0",
-            "-i", "file_list.txt", "-c", "copy", output_path
-        ], check=True)
+                    os.makedirs(base_name)
 
-        for title in titles:
-            os.remove(title)
+                    player_urls = download_plays(driver, base_name, result)
 
-        return last_name + " " + date_start + " " + date_end
-    else:
+                    time_secs, desc_txt = write_plays(
+                        title,
+                        base_name,
+                        player_urls,
+                        ffmpeg_path,
+                        preset,
+                        time_secs,
+                        desc_txt,
+                        output_dir,
+                    )
+
+                    if date_start != date_end:
+                        title_path = os.path.join(output_dir, title + ".mp4")
+                        file_list.write(f"file '{title_path}'\n")
+                        titles.append(title_path)
+
+            current_date += timedelta(days=1)
+
+        if date_start != date_end:
+            file_list.close()
+            file_list = None
+            if desc_txt is not None:
+                desc_txt.close()
+                desc_txt = None
+
+            output_path = os.path.join(
+                output_dir,
+                last_name + " " + date_start + " " + date_end + " Full Play.mp4",
+            )
+
+            if os.path.exists(output_path):
+                os.remove(output_path)
+
+            subprocess.run([
+                ffmpeg_path, "-f", "concat", "-safe", "0",
+                "-i", file_list_path, "-c", "copy", output_path
+            ], check=True)
+
+            for title_path in titles:
+                os.remove(title_path)
+
+            return last_name + " " + date_start + " " + date_end
+
         return title
+    finally:
+        if file_list is not None:
+            file_list.close()
+        if desc_txt is not None:
+            desc_txt.close()
+        if file_list_created and os.path.exists(file_list_path):
+            os.remove(file_list_path)
+        shutil.rmtree(base_name, ignore_errors=True)
 
 
 def pipeline(
         name_date_team: list[tuple[str | tuple[str, str], str, str]] |
         list[tuple[str | tuple[str, str], str, str, str]],
-        params: dict = {}
+        params: dict | None = None,
 ):
     """Makes videos for players and dates(s)."""
+    params = dict(params or {})
 
     for i, row in enumerate(name_date_team):
         if len(row) == 3:

@@ -44,7 +44,7 @@ def _key(period: int, sec: int, desc: str):
 
 
 def load_actions(driver, gid: str) -> dict:
-    """Return {(period, clock_sec, desc_lower): actionNumber}."""
+    """Return action IDs keyed by period/clock/description and period/clock."""
     actions = None
 
     # 1) the page's embedded Next.js data
@@ -86,14 +86,17 @@ def load_actions(driver, gid: str) -> dict:
     if not actions:
         raise RuntimeError("could not load play-by-play actions")
 
-    lookup = {}
+    lookup: dict[tuple[int, int, str | None], int] = {}
     for a in actions:
         if "description" not in a:
             a["description"] = ""
-        k = _key(a["period"], clock_to_sec(a["clock"]), a["description"])
+        period = a["period"]
+        second = clock_to_sec(a["clock"])
+        k = _key(period, second, a["description"])
         lookup.setdefault(
             k, a["actionNumber"]
         )  # first one wins on duplicates
+        lookup.setdefault((period, second, None), a["actionNumber"])
     return lookup
 
 
@@ -155,6 +158,14 @@ def get_plays(
                     )
 
                     eid = lookup.get(_key(quarter, play_time, desc_raw))
+                    if eid is None and _needs_previous_action(desc_raw):
+                        current_eid = lookup.get((quarter, play_time, None))
+                        if current_eid is not None:
+                            eid = current_eid - 1
+                            print(
+                                "  ! exact play-by-play action not found "
+                                f"for {desc_raw!r}; using event {eid}"
+                            )
                     if eid is None:
                         continue
                     video_url = event_url(gid, eid, desc_raw)
@@ -177,6 +188,15 @@ def get_plays(
     result = combine_events(result)
 
     return title, result
+
+
+def _needs_previous_action(description: str) -> bool:
+    """Whether an unmatched play can use its preceding feed action."""
+    description = description.casefold()
+    return any(
+        term in description
+        for term in ("steal", "block", "turnover", "miss")
+    )
 
 
 def _ball_exception(last_name, desc):

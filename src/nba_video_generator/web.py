@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import re
 import sys
 import threading
@@ -27,6 +28,7 @@ _TEAMS = {
 }
 _MAX_REQUEST_BYTES = 64 * 1024
 _MAX_LOG_CHARS = 100_000
+_DEFAULT_OUTPUT_DIR = os.getcwd()
 _jobs: dict[str, dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
 _active_job_id: str | None = None
@@ -144,6 +146,13 @@ _PAGE = r"""<!doctype html>
           <div id="players"></div>
           <div class="row-actions"><button class="text-button" type="button" id="add-player">＋ Add player</button><span class="hint">Up to 20 players</span></div>
           <div class="ffmpeg">
+            <label for="pipeline-output">Video output folder</label>
+            <div class="picker-row">
+              <input id="pipeline-output" name="output_dir" readonly>
+              <button class="picker" type="button" data-picker="output_folder" data-target="pipeline-output">Choose folder</button>
+            </div>
+          </div>
+          <div class="ffmpeg">
             <label for="pipeline-ffmpeg">FFmpeg executable</label>
             <div class="picker-row">
               <input id="pipeline-ffmpeg" name="ffmpeg_path" readonly>
@@ -165,6 +174,13 @@ _PAGE = r"""<!doctype html>
           <div id="agent-games" class="game-list" aria-label="Games to analyze"></div>
           <label class="checkbox"><input type="checkbox" name="threshold" checked> Apply performance thresholds</label>
           <div class="ffmpeg">
+            <label for="agent-output">Video output folder</label>
+            <div class="picker-row">
+              <input id="agent-output" name="output_dir" readonly>
+              <button class="picker" type="button" data-picker="output_folder" data-target="agent-output">Choose folder</button>
+            </div>
+          </div>
+          <div class="ffmpeg">
             <label for="agent-ffmpeg">FFmpeg executable</label>
             <div class="picker-row">
               <input id="agent-ffmpeg" name="ffmpeg_path" readonly>
@@ -179,6 +195,13 @@ _PAGE = r"""<!doctype html>
           <div class="field-grid">
             <div><label for="shorts-date">Game date</label><input id="shorts-date" name="date" type="date" required></div>
             <div><label>Format</label><input value="Top plays · vertical 9:16" disabled></div>
+          </div>
+          <div class="ffmpeg">
+            <label for="shorts-output">Video output folder</label>
+            <div class="picker-row">
+              <input id="shorts-output" name="output_dir" readonly>
+              <button class="picker" type="button" data-picker="output_folder" data-target="shorts-output">Choose folder</button>
+            </div>
           </div>
           <div class="ffmpeg">
             <label for="shorts-ffmpeg">FFmpeg executable</label>
@@ -235,8 +258,10 @@ _PAGE = r"""<!doctype html>
   </template>
   <script>
     const defaultFfmpeg = __FFMPEG_JSON__;
+    const defaultOutputDir = __OUTPUT_DIR_JSON__;
     const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     document.querySelectorAll('[name="ffmpeg_path"]').forEach(input => input.value = defaultFfmpeg);
+    document.querySelectorAll('[name="output_dir"]').forEach(input => input.value = defaultOutputDir);
     document.querySelectorAll('[type="date"]').forEach(input => input.value = today);
 
     const players = document.getElementById('players');
@@ -386,8 +411,10 @@ _PAGE = r"""<!doctype html>
         if (!response.ok) throw new Error(body.error || `Picker failed (${response.status})`);
         if (body.path) field.value = body.path;
       } catch (error) {
-        document.getElementById('upload-status').className = 'status error';
-        document.getElementById('upload-status').textContent = error.message;
+        const status = button.closest('.form-panel')?.querySelector('.status')
+          || document.getElementById('upload-status');
+        status.className = 'status error';
+        status.textContent = error.message;
       } finally {
         button.disabled = false;
       }
@@ -423,6 +450,9 @@ _PAGE = r"""<!doctype html>
       logEl.textContent = 'Submitting job…';
       const payload = {operation: form.id};
       if (form.id !== 'upload') payload.ffmpeg_path = form.querySelector('[name="ffmpeg_path"]').value.trim();
+      if (['pipeline', 'agent', 'shorts'].includes(form.id)) {
+        payload.output_dir = form.querySelector('[name="output_dir"]').value.trim();
+      }
       if (form.id === 'pipeline') {
         payload.players = [...players.querySelectorAll('.player-row')].map(row => Object.fromEntries(
           [...row.querySelectorAll('[data-field]')].map(input => [input.dataset.field, input.value.trim()])
@@ -593,6 +623,17 @@ def _validate_payload(payload: Any) -> dict[str, Any]:
             "playlists": playlists,
             "delete_uploaded": delete_uploaded,
         })
+    if operation in {"pipeline", "agent", "shorts"}:
+        output_dir = payload.get("output_dir", _DEFAULT_OUTPUT_DIR)
+        if not isinstance(output_dir, str) or len(output_dir) > 4096:
+            raise ValueError("Choose a valid video output folder.")
+        try:
+            output_path = Path(output_dir).expanduser().resolve(strict=True)
+        except (OSError, ValueError) as exc:
+            raise ValueError("The selected video output folder does not exist.") from exc
+        if not output_path.is_dir():
+            raise ValueError("The selected video output path is not a folder.")
+        validated["output_dir"] = str(output_path)
     return validated
 
 
@@ -637,7 +678,10 @@ def _run_job(job_id: str, payload: dict[str, Any]) -> None:
 
                 result = pipeline(
                     payload["players"],
-                    {"ffmpeg_path": payload["ffmpeg_path"]},
+                    {
+                        "ffmpeg_path": payload["ffmpeg_path"],
+                        "output_dir": payload["output_dir"],
+                    },
                 )
             elif operation == "agent":
                 from nba_video_generator.nba_agent import run_agent
@@ -648,6 +692,7 @@ def _run_job(job_id: str, payload: dict[str, Any]) -> None:
                     threshold=payload["threshold"],
                     approve=False,
                     game_urls=payload["game_urls"],
+                    output_dir=payload["output_dir"],
                 )
             elif operation == "shorts":
                 from nba_video_generator.nba_shorts import make_shorts_for_date
@@ -655,6 +700,7 @@ def _run_job(job_id: str, payload: dict[str, Any]) -> None:
                 result = make_shorts_for_date(
                     payload["date"],
                     payload["ffmpeg_path"],
+                    payload["output_dir"],
                 )
             else:
                 from nba_video_generator.youtube_upload_scripts.process_nba_videos import upload_videos
@@ -733,6 +779,10 @@ class _Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/":
             page = _PAGE.replace("__FFMPEG_JSON__", json.dumps(FFMPEG_PATH))
+            page = page.replace(
+                "__OUTPUT_DIR_JSON__",
+                json.dumps(_DEFAULT_OUTPUT_DIR),
+            )
             body = page.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -766,7 +816,9 @@ class _Handler(BaseHTTPRequestHandler):
                     raise ValueError("Invalid picker request.")
                 request = json.loads(self.rfile.read(length))
                 kind = request.get("kind") if isinstance(request, dict) else None
-                if not isinstance(kind, str) or kind not in {"file", "folder", "ffmpeg"}:
+                if not isinstance(kind, str) or kind not in {
+                    "file", "folder", "output_folder", "ffmpeg"
+                }:
                     raise ValueError("Choose a file, folder, or FFmpeg executable.")
                 import tkinter as tk
                 from tkinter import filedialog
@@ -792,7 +844,11 @@ class _Handler(BaseHTTPRequestHandler):
                     else:
                         selected = filedialog.askdirectory(
                             parent=root,
-                            title="Select the folder containing videos",
+                            title=(
+                                "Select video output folder"
+                                if kind == "output_folder"
+                                else "Select the folder containing videos"
+                            ),
                             mustexist=True,
                         )
                 finally:

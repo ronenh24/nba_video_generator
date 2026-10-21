@@ -163,7 +163,8 @@ def make_shorts_for_date(
             r"C:\Users\ronen\Documents\Projects\nba_video_generator\src"
             r"\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg"
             r".exe"
-        )
+        ),
+        output_dir: str = ".",
 ) -> List[GameResult]:
     """Make shorts for every game on a day, using nba.com/games to find them.
 
@@ -171,7 +172,13 @@ def make_shorts_for_date(
     (and don't count toward max_games),
     so max_games means "make at most N new videos".
     """
-    cfg = Config(ffmpeg_path=ffmpeg_path)
+    output_dir = str(Path(output_dir).expanduser().resolve())
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    cfg = Config(
+        ffmpeg_path=ffmpeg_path,
+        out=output_dir,
+        compiled_dir=output_dir,
+    )
     if date is None:
         date = "today"
     d = parse_date(date) if isinstance(date, str) else date

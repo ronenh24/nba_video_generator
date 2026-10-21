@@ -137,8 +137,11 @@ After the new release is published, install it from PyPI as shown above. The
 dashboard opens at `http://127.0.0.1:8765`. It includes forms for the
 player pipeline (including date ranges and multiple players), the daily agent
 (load finished games for a date and choose which to analyze), and top-plays
-Shorts. Jobs run in the background and stream their output to the activity
-panel. The YouTube upload workflow lets you select a video folder and
+Shorts. Each video workflow lets you choose the output folder. When the player
+pipeline cannot match a steal, block, turnover, or miss to an exact NBA play
+event, it uses the action ID immediately before the first feed action found at
+that game clock. Jobs run in the background and stream their output to the
+activity panel. The YouTube upload workflow lets you select a video folder and
 Google `client_secrets.json` using local file pickers. Uploads default to
 private, preserve local files, and use a saved OAuth token under your home
 directory. Only one workflow can run at a time. To choose another port or keep

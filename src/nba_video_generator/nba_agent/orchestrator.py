@@ -166,6 +166,7 @@ def run_agent(
     threshold: bool = True,
     approve: bool = False,
     game_urls: list[str] | None = None,
+    output_dir: str = ".",
 ) -> list[tuple[str, str, str, str]]:
     """
     Scan box scores for `target_date` (YYYY-MM-DD, defaults to today),
@@ -177,6 +178,10 @@ def run_agent(
     `ffmpeg_path` overrides config.FFMPEG_PATH for this run if given.
     """
     target_date = target_date or date_cls.today().isoformat()
+    output_dir = os.path.abspath(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    thumb_dir = os.path.join(output_dir, THUMB_DIR)
+    os.makedirs(thumb_dir, exist_ok=True)
 
     state = _load_state()
     state.setdefault(target_date, [])
@@ -387,6 +392,7 @@ def run_agent(
             jobs,
             {
                 "ffmpeg_path": ffmpeg_path,
+                "output_dir": output_dir,
             },
         )
 
@@ -402,9 +408,9 @@ def run_agent(
                 name, abbr, row = thumb_job
 
                 if name in title:
-                    path = os.path.join(THUMB_DIR, title + ".jpg")
+                    path = os.path.join(thumb_dir, title + ".jpg")
                     with open(
-                        title + " description.txt", "r+",
+                        os.path.join(output_dir, title + " description.txt"), "r+",
                         encoding="utf-8"
                     ) as f:
                         old_content = f.read()

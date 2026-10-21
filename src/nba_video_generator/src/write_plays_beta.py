@@ -70,10 +70,17 @@ def _combine_targets(clips, starts, durations, repeats, keep):
 
 def write_plays(
         title: str, base_name: str, player_urls: list[tuple[str, str]],
-        ffmpeg_path: str, preset: str, time_secs: float = 0, desc_txt=None
+        ffmpeg_path: str, preset: str, time_secs: float = 0, desc_txt=None,
+        output_dir: str = ".",
 ):
+    output_dir = os.path.abspath(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
     if desc_txt is None:
-        desc_txt = open(title + " description.txt", "w+", encoding='utf-8')
+        desc_txt = open(
+            os.path.join(output_dir, title + " description.txt"),
+            "w+",
+            encoding="utf-8",
+        )
 
     os.makedirs(base_name, exist_ok=True)
 
@@ -91,8 +98,8 @@ def write_plays(
         inputs += ["-i", event_url]
     concat_inputs = "".join(f"[{i}:v][{i}:a]" for i in range(n))
 
-    output_path = title + ".mp4"
-    raw_path = title + "_raw.mp4"
+    output_path = os.path.join(output_dir, title + ".mp4")
+    raw_path = os.path.join(output_dir, title + "_raw.mp4")
     caption_files = []
 
     try:
