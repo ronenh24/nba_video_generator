@@ -113,7 +113,11 @@ A video of the process is provided below.
 [https://www.youtube.com/watch?v=IC8SrrvS4xE&feature=youtu.be](https://www.youtube.com/watch?v=IC8SrrvS4xE&feature=youtu.be)
 
 ## Automatically Make Game Top Plays Shorts - **NEW**
-Makes shorts of the top 4 plays from each of specified date (default today).
+Makes shorts of the top 4 plays from each specified date (default today).
+Made scoring plays are excluded when they occur with 5:00 or less remaining in
+the fourth quarter and the team was already leading by at least 20 points.
+Fourth-quarter buzzer-beaters are also excluded unless they tie the game or
+change which team is leading.
 
 ```python
 from nba_video_generator.nba_shorts import make_shorts_for_date

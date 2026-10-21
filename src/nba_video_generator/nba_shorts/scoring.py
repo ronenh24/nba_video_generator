@@ -37,6 +37,63 @@ def fmt_clock(iso_clock: str) -> str:
     return f"{int(s // 60):02d}:{int(s % 60):02d}"
 
 
+def _score_total(action: dict) -> int | None:
+    try:
+        return int(action["scoreHome"]) + int(action["scoreAway"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _is_made_bucket(action: dict) -> bool:
+    result = str(action.get("shotResult") or "").strip().lower()
+    if result:
+        return result == "made"
+    action_type = str(action.get("actionType") or "").strip().lower()
+    description = str(action.get("description") or "").strip().lower()
+    return "made" in action_type or description.startswith("made ")
+
+
+def _is_garbage_time_bucket(
+        action: dict, prev_diff: int | None, prev_total: int
+) -> bool:
+    """Exclude scoring plays in a late fourth-quarter blowout."""
+    if action.get("period") != 4 or prev_diff is None or abs(prev_diff) < 15:
+        return False
+    if clock_seconds(action.get("clock", "")) > 5 * 60:
+        return False
+
+    total = _score_total(action)
+    if total is not None:
+        return total > prev_total
+    return _is_made_bucket(action)
+
+
+def _is_non_result_changing_buzzer_beater(
+        action: dict, prev_diff: int | None
+) -> bool:
+    if action.get("period") != 4 or clock_seconds(action.get("clock", "")) > 3:
+        return False
+
+    made = str(action.get("shotResult") or "").lower() == "made"
+    action_type = str(action.get("actionType") or "").lower()
+    is_field_goal = bool(action.get("isFieldGoal")) or action_type in (
+        "2pt", "3pt"
+    )
+    if not made or not is_field_goal or prev_diff is None:
+        return False
+
+    try:
+        final_diff = int(action["scoreHome"]) - int(action["scoreAway"])
+    except (KeyError, TypeError, ValueError):
+        return False
+
+    return (
+        prev_diff != 0
+        and final_diff != 0
+        and (prev_diff > 0) == (final_diff > 0)
+    )
+
+
 # ============================================================ scoring
 def score_play(a: dict, prev_margin: int, prev_diff=None):
     """Return (score, reasons). Higher = better short material. Tune freely.
@@ -132,14 +189,25 @@ def pick_plays(
         min_score: float = 3.0, player: str = ""
 ) -> list:
     """Best `top` plays scoring >= min_score, returned in game order."""
-    scored, margin, prev_diff = [], 99, None
+    scored, margin, prev_diff, prev_total = [], 99, None, 0
     for a in actions:
+        garbage_time_bucket = _is_garbage_time_bucket(
+            a, prev_diff, prev_total
+        )
+        non_result_changing_buzzer = _is_non_result_changing_buzzer_beater(
+            a, prev_diff
+        )
         s, why = score_play(a, margin, prev_diff)
+        total = _score_total(a)
         try:
             diff = int(a["scoreHome"]) - int(a["scoreAway"])
             margin, prev_diff = abs(diff), diff
         except (KeyError, ValueError, TypeError):
             pass
+        if total is not None:
+            prev_total = total
+        if garbage_time_bucket or non_result_changing_buzzer:
+            continue
         if player and player.lower() not in (
             a.get("description") or ""
         ).lower():
