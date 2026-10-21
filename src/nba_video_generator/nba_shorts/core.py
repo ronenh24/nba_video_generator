@@ -178,6 +178,7 @@ def make_shorts_for_date(
         ffmpeg_path=ffmpeg_path,
         out=output_dir,
         compiled_dir=output_dir,
+        processed_file=str(Path(output_dir) / "processed_shorts.json"),
     )
     if date is None:
         date = "today"
