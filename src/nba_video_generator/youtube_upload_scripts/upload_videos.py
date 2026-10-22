@@ -406,6 +406,11 @@ def add_to_playlists(youtube, video_id, playlist_ids):
 def main():
     import argparse
 
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Upload a video to YouTube using the YouTube Data API."
     )

@@ -12,6 +12,14 @@ from pathlib import Path
 # upload_videos.py exit code: video uploaded, thumbnail didn't.
 EXIT_THUMBNAIL_FAILED = 2
 
+
+def _configure_console_encoding() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def upload_videos(
     video_directory: str,
     client_secrets_file: str,
@@ -20,6 +28,7 @@ def upload_videos(
     delete_uploaded: bool = False,
 ) -> int:
     """Upload MP4s from a folder, with optional descriptions and thumbnails."""
+    _configure_console_encoding()
     video_dir = Path(video_directory).expanduser().resolve(strict=True)
     secrets_path = Path(client_secrets_file).expanduser().resolve(strict=True)
     if not video_dir.is_dir():
@@ -79,12 +88,15 @@ def upload_videos(
         else:
             print("Thumbnail: none found")
 
+        environment = os.environ.copy()
+        environment["PYTHONIOENCODING"] = "utf-8"
         result = subprocess.run(
             command,
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
+            env=environment,
             check=False,
         )
         if result.stdout:
@@ -115,6 +127,7 @@ def upload_videos(
 if __name__ == '__main__':
     import argparse
 
+    _configure_console_encoding()
     parser = argparse.ArgumentParser(
         description="Upload videos from a folder to YouTube."
     )
