@@ -47,7 +47,7 @@ class VideoDeduper:
     """
 
     def __init__(
-            self, path: str, ffmpeg_path: str, keep="first", fps=5,
+            self, path: str, ffmpeg_path: str, keep="last", fps=5,
             max_dist=10, min_sec=1.5, min_gap=1.5, max_diff=10, crf=18,
             preset="veryfast", verbose=True, ffprobe_path=None):
         if not os.path.isfile(path):
