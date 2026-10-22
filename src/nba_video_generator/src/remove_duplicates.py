@@ -4,8 +4,21 @@ import os
 import subprocess
 from dataclasses import dataclass
 
-import cv2
 import numpy as np
+
+
+def _dct_basis(size):
+    positions = np.arange(size, dtype=np.float32)
+    frequencies = positions[:, None]
+    basis = np.cos(
+        np.pi * (2 * positions[None, :] + 1) * frequencies / (2 * size)
+    ).astype(np.float32)
+    basis[0] *= np.sqrt(1 / size)
+    basis[1:] *= np.sqrt(2 / size)
+    return basis
+
+
+_DCT32 = _dct_basis(32)
 
 
 @dataclass
@@ -128,7 +141,7 @@ class VideoDeduper:
 
     @staticmethod
     def phash(img):
-        transformed = cv2.dct(img)
+        transformed = _DCT32 @ img @ _DCT32.T
         low_frequency = transformed[:8, :8]
         return (low_frequency > np.median(low_frequency[1:])).ravel()
 

@@ -1,12 +1,10 @@
 av
 beautifulsoup4
+cryptography==46.0.3
 google-api-python-client
 google-auth-oauthlib
 httplib2
-moviepy
 numpy
-opencv-python
-opencv-python-headless
 Pillow
 protobuf
 requests

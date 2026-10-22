@@ -4,23 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nba-video-generator"
-version = "7.0.24"
+version = "8.0.1"
 authors = [
   { name="Ronen Huang", email="ronenhuang24@gmail.com" },
 ]
 description = "Generates video highlights for an NBA player."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.15.1"
 dependencies = [
     "av",
     "beautifulsoup4",
+    "cryptography==46.0.3",
     "google-api-python-client",
     "google-auth-oauthlib",
     "httplib2",
-    "moviepy",
     "numpy",
-    "opencv-python",
-    "opencv-python-headless",
     "Pillow",
     "protobuf",
     "requests",
@@ -31,6 +29,7 @@ dependencies = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: OS Independent",
     "License :: OSI Approved :: Apache Software License",
 ]

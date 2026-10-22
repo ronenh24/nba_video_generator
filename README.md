@@ -1,5 +1,7 @@
 # NBA Highlights Video Generator
 
+Requires Python 3.15.1 or newer.
+
 ## Videos
 Posted on [NBA Full Play Highlights](https://www.youtube.com/@NBAFullPlayHighlights).
 

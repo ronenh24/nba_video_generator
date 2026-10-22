@@ -28,11 +28,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.15.1"
 
-      - name: Install build tools
+      - name: Install package and build tools
         run: |
           python -m pip install --upgrade pip build
+          python -m pip install .
+
+      - name: Validate Python package
+        run: |
+          python -m compileall -q src/nba_video_generator
+          python -c "import nba_video_generator; from nba_video_generator.src.remove_duplicates import VideoDeduper"
 
       - name: Build distributions
         run: |
