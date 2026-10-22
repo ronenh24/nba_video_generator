@@ -20,9 +20,9 @@ FFMPEG_PATH = os.environ.get(
 )
 
 # --- Rule-based "worth a look" thresholds ---
-# Any player who clears TWO of these gets sent to the LLM for a final
-# highlight-worthy/not judgment call. Keeps the LLM prompt small and keeps
-# it from hallucinating candidates out of thin air.
+# Candidates qualify through any two THRESHOLDS categories, one
+# SINGLE_STAT_THRESHOLDS category, or a triple-double. Other candidates are
+# omitted unless threshold filtering is disabled.
 THRESHOLDS = {
     "PTS": 20,
     "REB": 10,
@@ -33,6 +33,23 @@ THRESHOLDS = {
 }
 TRIPLE_DOUBLE_CATS = ["PTS", "REB", "AST", "STL", "BLK"]
 TRIPLE_DOUBLE_MIN = 10  # double-digit in 3+ of the categories above
+SINGLE_STAT_THRESHOLDS = {
+    "PTS": 30,
+    "REB": 15,
+    "AST": 10,
+    "STL": 3,
+    "BLK": 3,
+    "3PM": 5,
+}
+
+# Candidates at these levels bypass model judgment and are kept directly.
+AUTO_KEEP_THRESHOLDS = {
+    "PTS": 40,
+    "REB": 20,
+    "AST": 15,
+    "STL": 5,
+    "BLK": 5,
+}
 
 BASE_GAMES_URL = "https://www.nba.com/games?date={date}"
 
@@ -60,18 +77,15 @@ SCHEMA = {
         "evaluation": {
             "type": "object",
             "properties": {
-                "id": {"type": "integer"},
                 "thinking": {"type": "string"},
                 "keep": {"type": "boolean"},
             },
-            "required": [
-                "id",
-                "thinking",
-                "keep",
-            ],
+            "required": ["thinking", "keep"],
+            "additionalProperties": False,
         }
     },
     "required": ["evaluation"],
+    "additionalProperties": False,
 }
 
 PROMPT_CHUNKS = {
@@ -80,11 +94,9 @@ PROMPT_CHUNKS = {
         "which performances deserve a highlight video tonight.\n\n",
 
     "input":
-        "### INPUT CONTEXT\nEach candidate has an arbitrary integer ID and a "
-        "verified box-score dictionary. "
-        "Player and team identities are omitted. IDs identify candidates and "
-        "imply no ranking.\n"
-        "Each candidate's statistics are provided as JSON with these exact "
+        "### INPUT CONTEXT\nThe candidate has a verified box-score "
+        "dictionary. Player and team identities are omitted.\n"
+        "The candidate's statistics are provided as JSON with these exact "
         "fields: Minutes, Points, "
         "Field Goals Made, Field Goals Attempted, 3 Point Field Goals Made, "
         "3 Point Field Goals Attempted, Free Throws Made, Free Throws "
@@ -99,7 +111,6 @@ PROMPT_CHUNKS = {
     "reason_format":
         "### REASONING FORMAT\nWhen assessing a candidate, interpret the "
         "supplied statistics using this format:\n"
-        "ID <ID>:\n"
         "- <Minutes> Minutes\n"
         "- <Points> Points (<Field Goals Made> Field Goals Made out of "
         "<Field Goals Attempted> Field Goals Attempted, "
@@ -133,26 +144,24 @@ PROMPT_CHUNKS = {
 
     "output_format":
         "### OUTPUT FORMAT\nReturn exactly one JSON object, with no markdown "
-        "or extra text, containing one key, 'evaluation', with exactly one "
-        "entry per candidate in ascending numeric ID order. Each entry has "
-        "these fields in this order:\n1. 'id': Integer candidate ID.\n2. "
+        "or extra text, containing one key, 'evaluation', whose value is an "
+        "object with exactly these fields:\n1. "
         "'thinking': 2-3 sentences assessing scoring, rebounding, playmaking,"
         "and defense, identifying clearly impressive versus ordinary "
         "categories. Judge scoring by **BOTH volume AND efficiency** "
         "(low volume with high efficiency is not impressive); judge "
         "playmaking by absolute assists, not just assist-to-turnover ratio "
-        "(low assists with no turnovers is not impressive). Explicitly state"
+        "(low assists with no turnovers is not impressive). Explicitly state "
         "whether the performance deserves a highlight video **RULE: ALWAYS "
-        "REFERENCE NUMBERS**.\n3. 'keep': Boolean \final decision determined "
-        "by the conclusion of 'think'. "
-        "**RULE: CANNOT CONTRADICT 'think'**.\n\n",
+        "REFERENCE NUMBERS**.\n2. 'keep': Boolean final decision determined "
+        "by the conclusion of 'thinking'. "
+        "**RULE: CANNOT CONTRADICT 'thinking'**.\n\n",
 
     "example":
         '### EXAMPLES\n'
         'Example 1 — Reject an ordinary performance:\n'
         '{\n'
         '  "evaluation": {\n'
-        '    "id": 0,\n'
         '    "thinking": "5 points on 1-4 shooting is inefficient scoring. '
         '3 rebounds and 3 assists are ordinary, and 1 steal is unremarkable. '
         'This ordinary performance does not merit a highlight video",\n'
@@ -162,7 +171,6 @@ PROMPT_CHUNKS = {
         'Example 2 — Keep a standout performance:\n'
         '{\n'
         '  "evaluation": {\n'
-        '    "id": 1,\n'
         '    "thinking": "28 points on 11-16 shooting shows excellent scoring '
         'volume and efficiency. 12 rebounds are exceptional, and 3 steals '
         'indicate strong defensive production. These distinct strengths '
@@ -172,9 +180,9 @@ PROMPT_CHUNKS = {
         '  }\n'
         '}\n\n'
         'Treat these examples as schema and reasoning illustrations only. '
-        'Evaluate every actual candidate independently, do not copy the '
+        'Evaluate the supplied candidate independently, do not copy the '
         'examples\\\' thresholds or conclusions, and return exactly one JSON '
-        'object matching the schema for the candidate being evaluated.\n\n'
+        'object matching the schema.\n\n'
 }
 
 SYSTEM_PROMPT = "".join(PROMPT_CHUNKS.values())

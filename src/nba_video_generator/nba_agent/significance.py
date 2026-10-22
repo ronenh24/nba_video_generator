@@ -4,8 +4,9 @@ import requests
 from tqdm import tqdm
 
 from .config import (
-    OLLAMA_HOST, OLLAMA_MODEL, THRESHOLDS, TRIPLE_DOUBLE_MIN,
-    SCHEMA, SYSTEM_PROMPT
+    AUTO_KEEP_THRESHOLDS, OLLAMA_HOST, OLLAMA_MODEL, SCHEMA,
+    SINGLE_STAT_THRESHOLDS, SYSTEM_PROMPT, THRESHOLDS,
+    TRIPLE_DOUBLE_CATS, TRIPLE_DOUBLE_MIN,
 )
 
 
@@ -44,36 +45,33 @@ def describe(p: dict) -> str:
 def rule_based_candidates(
         team_name: str, players: list[dict], threshold: bool = True
 ) -> list[dict]:
-    """Players whose raw stat line clears any THRESHOLDS value,
-    or a triple-double. Each candidate gets a REASON computed straight
-    from the numbers — never from the LLM — so the eventual highlight
-    caption can't misstate the box score."""
+    """Filter players by configured categories and annotate their statline."""
     candidates = []
     for p in players:
         if threshold:
-            pts, reb, ast = \
-                _num(p.get("PTS")), _num(p.get("REB")), _num(p.get("AST"))
-            stl, blk, tpm = \
-                _num(p.get("STL")), _num(p.get("BLK")), _num(p.get("3PM"))
+            stats = {
+                key: _num(p.get(key))
+                for key in set(THRESHOLDS)
+                | set(SINGLE_STAT_THRESHOLDS)
+                | set(TRIPLE_DOUBLE_CATS)
+            }
 
             double_digit_cats = sum(
-                1 for v in (pts, reb, ast, stl, blk) if v >= TRIPLE_DOUBLE_MIN)
+                1
+                for category in TRIPLE_DOUBLE_CATS
+                if stats[category] >= TRIPLE_DOUBLE_MIN
+            )
 
             hit_threshold = (
-                (
-                    int(pts >= THRESHOLDS["PTS"])
-                    + int(reb >= THRESHOLDS["REB"])
-                    + int(ast >= THRESHOLDS["AST"])
-                    + int(stl >= THRESHOLDS["STL"])
-                    + int(blk >= THRESHOLDS["BLK"])
+                sum(
+                    stats[category] >= cutoff
+                    for category, cutoff in THRESHOLDS.items()
                 ) >= 2
-                or tpm >= THRESHOLDS["3PM"]
+                or any(
+                    stats[category] >= cutoff
+                    for category, cutoff in SINGLE_STAT_THRESHOLDS.items()
+                )
                 or double_digit_cats >= 3
-                or pts >= 30
-                or reb >= 15
-                or ast >= 10
-                or stl >= 4
-                or blk >= 4
             )
 
             if hit_threshold:
@@ -113,10 +111,10 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
     performance as a whole genuinely deserves a highlight video. Having
     three or more strengths does not automatically qualify a candidate.
 
-    The model returns a structured JSON evaluation for every candidate.
-    Candidates with a final keep decision of True are retained. If the
-    model request fails, or its response cannot be parsed or validated,
-    the original sorted candidate list is returned as a fallback.
+    Candidates meeting AUTO_KEEP_THRESHOLDS bypass model judgment and are
+    retained. Other candidates are kept only when the response matches the
+    configured schema and its `keep` value is True. Failed or invalid model
+    responses are not retained.
 
     Original candidate dictionaries are returned unchanged, including
     REASON and all other fields.
@@ -124,16 +122,20 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
     if not candidates:
         return []
 
-    candidates = sorted(candidates, key=lambda p: int(p["PTS"]))
+    candidates = sorted(candidates, key=lambda p: _num(p["PTS"]))
 
-    lines = [
-        f"- ID {i}: {r}"
-        for i, r in enumerate(get_stats_dictionary(candidates))
-    ]
+    lines = get_stats_dictionary(candidates)
 
     keep_ids = set()
 
-    for line in tqdm(lines):
+    for i, (line, candidate) in tqdm(enumerate(zip(lines, candidates))):
+        if any(
+            _num(candidate.get(category)) >= cutoff
+            for category, cutoff in AUTO_KEEP_THRESHOLDS.items()
+        ):
+            keep_ids.add(i)
+            continue
+
         user_prompt = (
             f"{line} \n\nEvaluate the candidate above and return the "
             "JSON object.\n"
@@ -165,7 +167,7 @@ def ollama_judge(candidates: list[dict]) -> list[dict]:
             evaluation = data["evaluation"]
 
             if evaluation.get("keep") is True:
-                keep_ids.add(evaluation.get("id"))
+                keep_ids.add(i)
         except Exception:
             pass
 
