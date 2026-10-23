@@ -1,7 +1,7 @@
-import json
 import re
-from urllib.parse import quote
 
+from nba_video_generator.nba_shorts.playbyplay import get_pbp_browser
+from nba_video_generator.nba_shorts.media import video_events_asset_url
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
@@ -24,9 +24,7 @@ def season_from_game_id(gid: str) -> str:
 
 
 def event_url(gid: str, eid: int, desc: str) -> str:
-    return ("https://www.nba.com/stats/events?CFID=&CFPARAMS="
-            f"&GameEventID={eid}&GameID={gid}"
-            f"&Season={season_from_game_id(gid)}&flag=1&title={quote(desc)}")
+    return video_events_asset_url(gid, eid)
 
 
 def clock_to_sec(c: str) -> int:
@@ -45,46 +43,7 @@ def _key(period: int, sec: int, desc: str):
 
 def load_actions(driver, gid: str) -> dict:
     """Return action IDs keyed by period/clock/description and period/clock."""
-    actions = None
-
-    # 1) the page's embedded Next.js data
-    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>',
-                  driver.page_source, re.S)
-    if m:
-        def find(o):
-            if isinstance(o, dict):
-                a = o.get("actions")
-                if isinstance(a, list) and a and "actionNumber" in a[0]:
-                    return a
-                for v in o.values():
-                    r = find(v)
-                    if r:
-                        return r
-            elif isinstance(o, list):
-                for v in o:
-                    r = find(v)
-                    if r:
-                        return r
-            return None
-        actions = find(json.loads(m.group(1)))
-
-    # 2) otherwise fetch the feed from inside the browser
-    if not actions:
-        url = (
-            f"https://cdn.nba.com/static/json/liveData/playbyplay/"
-            f"playbyplay_{gid}.json"
-        )
-        txt = driver.execute_async_script(
-            "const cb = arguments[arguments.length-1];"
-            "fetch(arguments[0]).then(r => r.text()).then(cb)"
-            ".catch(e => cb(''));",
-            url,
-        )
-        if txt:
-            actions = json.loads(txt)["game"]["actions"]
-
-    if not actions:
-        raise RuntimeError("could not load play-by-play actions")
+    actions = get_pbp_browser(driver, gid)
 
     lookup: dict[tuple[int, int, str | None], int] = {}
     for a in actions:

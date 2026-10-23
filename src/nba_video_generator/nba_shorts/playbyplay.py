@@ -84,17 +84,20 @@ fetch(url)
 
 
 def get_pbp_browser(driver, gid: str) -> list:
-    """Play-by-play via the real browser. Three strategies, in order."""
+    """Load play-by-play from the NBA page before direct HTTP fallbacks."""
     try:
         driver.execute_cdp_cmd("Network.enable", {})
         driver.get_log("performance")  # clear old entries
     except Exception:
         pass
 
-    driver.get(f"https://www.nba.com/game/{gid}/play-by-play")
-    WebDriverWait(driver, 30).until(
-        lambda d: d.find_element(By.TAG_NAME, "body").text.strip() != "")
-    time.sleep(4)  # let the page's own data requests finish
+    if gid not in getattr(driver, "current_url", ""):
+        driver.get(f"https://www.nba.com/game/{gid}/play-by-play")
+        WebDriverWait(driver, 30).until(
+            lambda d: d.find_element(
+                By.TAG_NAME, "body"
+            ).text.strip() != "")
+        time.sleep(4)  # let the page's own data requests finish
 
     # a) data the page embeds for itself
     raw = driver.execute_script(
@@ -136,7 +139,16 @@ def get_pbp_browser(driver, gid: str) -> list:
     except Exception as e:
         print(f"  network sniffing failed: {e}")
 
-    # c) fetch the CDN file from inside the nba.com page
+    # c) try the public endpoints after using the page's own data
+    try:
+        actions = get_pbp(gid)
+        if actions:
+            print("Play-by-play loaded from the NBA feed.")
+            return actions
+    except (requests.RequestException, ValueError, KeyError) as e:
+        print(f"Direct play-by-play request failed ({e}); trying page fetch ...")
+
+    # d) fetch the CDN file from inside the nba.com page
     try:
         driver.set_script_timeout(60)
         txt = driver.execute_async_script(
@@ -148,7 +160,9 @@ def get_pbp_browser(driver, gid: str) -> list:
                 print("Play-by-play loaded via in-page fetch.")
                 return actions
     except Exception:
-        pass
+        raise
+
+    raise RuntimeError(f"Could not load play-by-play actions for game {gid}")
 
 
 def get_game_title(driver, gid: str) -> str:

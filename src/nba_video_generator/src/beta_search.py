@@ -179,8 +179,11 @@ def pipeline(
         params["driver"] = driver
         try:
             titles.append(search(**params))
-        except Exception:
-            pass
-        driver.quit()
+        except Exception as e:
+            print(
+                f"Failed to generate video for {name} on {date_start}: {e}"
+            )
+        finally:
+            driver.quit()
 
     return titles

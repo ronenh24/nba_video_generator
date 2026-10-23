@@ -1,6 +1,7 @@
 """Game-ID, season and date helpers."""
 import re
-from urllib.parse import quote
+
+from .media import video_events_asset_url
 
 
 # ============================================================ game id helpers
@@ -24,9 +25,7 @@ def game_type(gid: str) -> str:
 
 
 def event_url(gid: str, eid: int, desc: str) -> str:
-    return ("https://www.nba.com/stats/events?CFID=&CFPARAMS="
-            f"&GameEventID={eid}&GameID={gid}"
-            f"&Season={season_from_game_id(gid)}&flag=1&title={quote(desc)}")
+    return video_events_asset_url(gid, eid)
 
 
 def parse_date(text: str):
