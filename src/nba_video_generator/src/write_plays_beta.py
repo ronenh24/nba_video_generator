@@ -109,7 +109,7 @@ def write_plays(
             [ffmpeg_path, *inputs,
              "-filter_complex", f"{concat_inputs}concat=n={n}:v=1:a=1[v][a]",
              "-map", "[v]", "-map", "[a]",
-             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+             "-c:v", "libx264", "-preset", preset, "-crf", "18",
              "-c:a", "pcm_s16le", "-y", raw_path],
             check=True,
         )
