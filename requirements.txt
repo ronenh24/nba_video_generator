@@ -10,5 +10,6 @@ protobuf
 requests
 schedule
 selenium
+tzdata
 Unidecode
 tqdm

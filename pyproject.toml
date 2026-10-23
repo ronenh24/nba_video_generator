@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nba-video-generator"
-version = "8.0.1"
+version = "8.0.2"
 authors = [
   { name="Ronen Huang", email="ronenhuang24@gmail.com" },
 ]
@@ -24,6 +24,7 @@ dependencies = [
     "requests",
     "schedule",
     "selenium",
+    "tzdata",
     "Unidecode",
     "tqdm",
 ]
