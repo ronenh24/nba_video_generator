@@ -37,8 +37,6 @@ SINGLE_STAT_THRESHOLDS = {
     "PTS": 30,
     "REB": 15,
     "AST": 10,
-    "STL": 3,
-    "BLK": 3,
     "3PM": 5,
 }
 
