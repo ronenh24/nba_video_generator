@@ -2,7 +2,6 @@
 Daily agent: find significant NBA performances and
 build highlight videos.
 """
-import json
 import os
 import re
 import unicodedata
@@ -18,6 +17,11 @@ from .crawler import get_boxscore_urls_for_date, parse_boxscore
 from .significance import rule_based_candidates, ollama_judge
 from .thumbnail import attach_headshot, make_thumbnail
 from .team_logo import attach_logo
+from nba_video_generator.processed_performances import (
+    load_processed_performances,
+    performance_key,
+    save_processed_performances,
+)
 
 # Your existing video-generation pipeline (unchanged).
 from nba_video_generator.src.beta_search import pipeline
@@ -27,15 +31,11 @@ THUMB_DIR = "thumbnails"
 
 
 def _load_state() -> dict:
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    return load_processed_performances(STATE_FILE)
 
 
 def _save_state(state: dict) -> None:
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2)
+    save_processed_performances(state, STATE_FILE)
 
 
 def _remove_accents(text: str) -> str:
@@ -311,14 +311,7 @@ def run_agent(
                 #
                 # because Jaylen Williams and Jalen Williams would
                 # collide.
-                normalized_player_name = _remove_accents(
-                    player_name
-                )
-
-                key = (
-                    f"{normalized_player_name}|"
-                    f"{team_abbr}"
-                )
+                key = performance_key(player_name, team_abbr)
 
                 if key in already_done:
                     print(

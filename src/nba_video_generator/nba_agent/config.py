@@ -1,6 +1,8 @@
 """Configuration for the NBA daily-highlights agent."""
 import os
 
+from nba_video_generator.processed_performances import STATE_FILE
+
 # --- Ollama settings ---
 # Requires a local Ollama server (https://ollama.com) with a model pulled,
 # e.g.:  ollama pull gemma3:4b
@@ -10,8 +12,6 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "lfm2.5-thinking:1.2b")
 # --- Paths ---
 # Tracks which (player, team) pairs already had a video made for a given
 # date, so re-running the agent doesn't regenerate the same clip.
-STATE_FILE = os.environ.get("NBA_AGENT_STATE", "processed_performances.json")
-
 # Passed straight through to your existing pipeline()/write_plays() code.
 FFMPEG_PATH = os.environ.get(
     "FFMPEG_PATH",

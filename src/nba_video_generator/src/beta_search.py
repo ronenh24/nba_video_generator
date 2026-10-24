@@ -15,6 +15,12 @@ from .get_pbp_beta import get_pbp
 from .get_plays_beta import get_plays
 from .download_plays_beta import download_plays
 from .write_plays_beta import write_plays
+from nba_video_generator.processed_performances import (
+    STATE_FILE,
+    load_processed_performances,
+    performance_key,
+    save_processed_performances,
+)
 
 
 BASE_URL = "https://www.nba.com/games?date="
@@ -36,6 +42,12 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str,
     os.makedirs(output_dir, exist_ok=True)
     time_secs = 0
     desc_txt = None
+    title = None
+    generated_title = None
+    titles = []
+    generated_dates = []
+    processed_state = load_processed_performances(STATE_FILE)
+    state_key = performance_key(full_name or last_name, team)
     base_name = os.path.join(output_dir, last_name.lower())
     file_list_path = os.path.join(output_dir, "file_list.txt")
     current_date = datetime.strptime(date_start, "%Y-%m-%d")
@@ -56,10 +68,16 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str,
                 "w",
                 encoding="utf-8",
             )
-            titles = []
-
         while current_date <= end_date:
             date = current_date.strftime("%Y-%m-%d")
+            if state_key in processed_state.get(date, []):
+                print(
+                    f"Skipping {full_name or last_name} on {date}: "
+                    "already processed"
+                )
+                current_date += timedelta(days=1)
+                continue
+
             data_is_home_team, pbp_url = get_pbp(driver, BASE_URL, date, team)
 
             if pbp_url is not None:
@@ -81,22 +99,48 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str,
                     os.makedirs(base_name)
 
                     player_urls = download_plays(driver, base_name, result)
+                    if not player_urls:
+                        print(
+                            f"No playable clips found for {last_name} on "
+                            f"{date}"
+                        )
+                    else:
+                        time_secs, desc_txt = write_plays(
+                            title,
+                            base_name,
+                            player_urls,
+                            ffmpeg_path,
+                            preset,
+                            time_secs,
+                            desc_txt,
+                            output_dir,
+                        )
 
-                    time_secs, desc_txt = write_plays(
-                        title,
-                        base_name,
-                        player_urls,
-                        ffmpeg_path,
-                        preset,
-                        time_secs,
-                        desc_txt,
-                        output_dir,
-                    )
+                        title_path = os.path.join(
+                            output_dir, title + ".mp4"
+                        )
+                        if (
+                            not os.path.isfile(title_path)
+                            or os.path.getsize(title_path) == 0
+                        ):
+                            raise RuntimeError(
+                                "Video was not created successfully: "
+                                f"{title_path}"
+                            )
 
-                    if date_start != date_end:
-                        title_path = os.path.join(output_dir, title + ".mp4")
-                        file_list.write(f"file '{title_path}'\n")
-                        titles.append(title_path)
+                        if date_start != date_end:
+                            file_list.write(f"file '{title_path}'\n")
+                            titles.append(title_path)
+                            generated_dates.append(date)
+                        else:
+                            processed_state.setdefault(date, [])
+                            if state_key not in processed_state[date]:
+                                processed_state[date].append(state_key)
+                                processed_state[date].sort()
+                            save_processed_performances(
+                                processed_state, STATE_FILE
+                            )
+                            generated_title = title
 
             current_date += timedelta(days=1)
 
@@ -106,6 +150,13 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str,
             if desc_txt is not None:
                 desc_txt.close()
                 desc_txt = None
+
+            if not titles:
+                print(
+                    f"No new videos generated for {last_name} from "
+                    f"{date_start} to {date_end}"
+                )
+                return None
 
             output_path = os.path.join(
                 output_dir,
@@ -119,13 +170,28 @@ def search(driver: webdriver, last_name: str, date_start: str, date_end: str,
                 ffmpeg_path, "-f", "concat", "-safe", "0",
                 "-i", file_list_path, "-c", "copy", output_path
             ], check=True)
+            if (
+                not os.path.isfile(output_path)
+                or os.path.getsize(output_path) == 0
+            ):
+                raise RuntimeError(
+                    f"Combined video was not created successfully: "
+                    f"{output_path}"
+                )
+
+            for date in generated_dates:
+                processed_state.setdefault(date, [])
+                if state_key not in processed_state[date]:
+                    processed_state[date].append(state_key)
+                    processed_state[date].sort()
+            save_processed_performances(processed_state, STATE_FILE)
 
             for title_path in titles:
                 os.remove(title_path)
 
             return last_name + " " + date_start + " " + date_end
 
-        return title
+        return generated_title
     finally:
         if file_list is not None:
             file_list.close()
@@ -151,6 +217,30 @@ def pipeline(
     titles = []
 
     for name, date_start, date_end, team in name_date_team:
+        full_player_name = (
+            name[1] if isinstance(name, tuple)
+            else params.get("full_name") or name
+        )
+        state_key = performance_key(full_player_name, team)
+        processed_state = load_processed_performances(STATE_FILE)
+        first_date = datetime.strptime(date_start, "%Y-%m-%d")
+        last_date = datetime.strptime(date_end, "%Y-%m-%d")
+        requested_dates = []
+        current_date = first_date
+        while current_date <= last_date:
+            requested_dates.append(current_date.strftime("%Y-%m-%d"))
+            current_date += timedelta(days=1)
+
+        if requested_dates and all(
+            state_key in processed_state.get(date, [])
+            for date in requested_dates
+        ):
+            print(
+                f"Skipping {full_player_name} on "
+                f"{date_start} through {date_end}: already processed"
+            )
+            continue
+
         service = Service(log_output=os.devnull)
         options = webdriver.ChromeOptions()
         options.add_argument("--headless=new")
@@ -168,6 +258,7 @@ def pipeline(
         # driver.implicitly_wait(3)
         if isinstance(name, str):
             params["last_name"] = name
+            params.pop("full_name", None)
         else:
             params["last_name"] = name[0]
             if params["last_name"] == "Yang":
@@ -178,7 +269,9 @@ def pipeline(
         params["team"] = team
         params["driver"] = driver
         try:
-            titles.append(search(**params))
+            title = search(**params)
+            if title is not None:
+                titles.append(title)
         except Exception as e:
             print(
                 f"Failed to generate video for {name} on {date_start}: {e}"

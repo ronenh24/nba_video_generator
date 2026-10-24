@@ -87,6 +87,11 @@ pipeline(
 3. Events within 5 seconds of each other are merged to a single event.
 4. Plays are concatenated together to make the video.
 
+Successfully generated player/team/date videos are recorded in
+`processed_performances.json` in the current working directory. Later calls to
+`pipeline()` skip dates already recorded; set `NBA_AGENT_STATE` before
+importing the package to use a different state-file path.
+
 A video of the process is provided below.
 
 [https://www.youtube.com/watch?v=84GDSAL5CeE](https://www.youtube.com/watch?v=-1npjVtfezU)
