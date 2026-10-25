@@ -3,6 +3,16 @@ import re
 from dataclasses import dataclass, field
 
 
+PRIORITY_SCORE = {
+    "buzzer-beater winner": 70.0,
+    "buzzer-beater tie": 60.0,
+    "game winner": 50.0,
+    "game tying": 40.0,
+    "and-one three": 30.0,
+    "dunk": 20.0,
+}
+
+
 @dataclass
 class Play:
     score: float
@@ -94,6 +104,19 @@ def _is_non_result_changing_buzzer_beater(
     )
 
 
+def _is_and_one_three(description: str) -> bool:
+    normalized = re.sub(r"[\s-]+", " ", description.lower())
+    is_three = any(
+        marker in normalized
+        for marker in ("3pt", "3 point", "three point")
+    )
+    is_and_one = any(
+        marker in normalized
+        for marker in ("and 1", "and1", "and one", "plus one")
+    )
+    return is_three and is_and_one
+
+
 # ============================================================ scoring
 def score_play(a: dict, prev_margin: int, prev_diff=None):
     """Return (score, reasons). Higher = better short material. Tune freely.
@@ -116,8 +139,10 @@ def score_play(a: dict, prev_margin: int, prev_diff=None):
         diff, margin = None, prev_margin
 
     s, why = 0.0, []
+    priority = None
 
     if made and ("dunk" in desc or "dunk" in sub):
+        priority = "dunk"
         s += 5
         why.append("dunk")
         if "alley" in desc or "alley" in sub:
@@ -151,16 +176,31 @@ def score_play(a: dict, prev_margin: int, prev_diff=None):
         s += 1.5
         why.append("tip-in")
 
-    # Game-deciding baskets count even when the shot itself is
-    # plain (a layup, a tip-in).
+    # Classify late-game outcomes separately so their order is not
+    # affected by style bonuses or clutch multipliers.
     if made and is_fg and period >= 4 and\
             secs <= 30 and diff is not None and prev_diff is not None:
-        if prev_diff != 0 and diff != 0 and (prev_diff > 0) != (diff > 0):
-            s += 6
-            why.append("go-ahead")
+        if secs <= 3 and diff != 0 and (
+            prev_diff == 0 or (prev_diff > 0) != (diff > 0)
+        ):
+            priority = "buzzer-beater winner"
+            why.append("buzzer-beater winner")
+        elif secs <= 3 and diff == 0 and prev_diff != 0:
+            priority = "buzzer-beater tie"
+            why.append("buzzer-beater tie")
+        elif diff != 0 and (
+            prev_diff == 0 or (prev_diff > 0) != (diff > 0)
+        ):
+            priority = "game winner"
+            why.append("game winner")
         elif diff == 0 and prev_diff != 0:
-            s += 5
-            why.append("game-tying")
+            priority = "game tying"
+            why.append("game tying")
+
+    if made and is_fg and _is_and_one_three(desc):
+        if priority is None or priority == "dunk":
+            priority = "and-one three"
+        why.append("and-one three")
 
     # Beating the clock: a big bonus in the final period / OT,
     # a small one at the end of a quarter.
@@ -181,6 +221,10 @@ def score_play(a: dict, prev_margin: int, prev_diff=None):
         if period > 4:
             s *= 1.2
             why.append("OT")
+    if priority is not None:
+        s = PRIORITY_SCORE[priority] + min(s, 9.99)
+    else:
+        s = min(s, PRIORITY_SCORE["dunk"] - 0.01)
     return s, why
 
 

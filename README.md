@@ -125,6 +125,10 @@ Made scoring plays are excluded when they occur with 5:00 or less remaining in
 the fourth quarter and the team was already leading by at least 20 points.
 Fourth-quarter buzzer-beaters are also excluded unless they tie the game or
 change which team is leading.
+When choosing the top plays, scoring prioritizes buzzer-beater winners,
+buzzer-beater ties, other game-winning baskets, game-tying baskets, and-one
+threes, and dunks, in that order; other plays are ranked afterward by their
+existing style and situation scores.
 
 ```python
 from nba_video_generator.nba_shorts import make_shorts_for_date
