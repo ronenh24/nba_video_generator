@@ -180,8 +180,8 @@ def run_agent(
     target_date = target_date or date_cls.today().isoformat()
     output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
-    thumb_dir = os.path.join(output_dir, THUMB_DIR)
-    os.makedirs(thumb_dir, exist_ok=True)
+    thumb_dir = output_dir # os.path.join(output_dir, THUMB_DIR)
+    # os.makedirs(thumb_dir, exist_ok=True)
 
     state = _load_state()
     state.setdefault(target_date, [])

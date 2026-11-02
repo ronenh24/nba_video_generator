@@ -55,7 +55,7 @@ def upload_videos(
     token_dir.mkdir(parents=True, exist_ok=True)
     token_file = token_dir / f"youtube-{secrets_key}.json"
     upload_script = Path(__file__).with_name("upload_videos.py")
-    thumbnail_dir = video_dir / "thumbnails"
+    thumbnail_dir = video_dir # / "thumbnails"
     playlist_ids = ["PLMUQgUVnh3jw"] if playlists is None else playlists
     failures = []
 
