@@ -341,7 +341,7 @@ _PAGE = r"""<!doctype html>
 
     async function pollAgentGames(jobId, targetDate) {
       try {
-        const response = await fetch(`/api/jobs/${jobId}`);
+        const response = await fetch(`api/jobs/${jobId}`);
         if (!response.ok) throw new Error(`Game-list request failed (${response.status})`);
         const job = await response.json();
         logEl.textContent = job.logs || 'Loading finished games…';
@@ -375,7 +375,7 @@ _PAGE = r"""<!doctype html>
       agentGamesStatus.className = 'status running';
       agentGamesStatus.textContent = 'Loading finished games…';
       try {
-        const response = await fetch('/api/jobs', {
+        const response = await fetch('api/jobs', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({operation: 'agent_games', date: targetDate})
@@ -403,7 +403,7 @@ _PAGE = r"""<!doctype html>
       ));
       button.disabled = true;
       try {
-        const response = await fetch('/api/select-path', {
+        const response = await fetch('api/select-path', {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({kind})
         });
@@ -425,7 +425,7 @@ _PAGE = r"""<!doctype html>
     const infoEl = document.getElementById('job-info');
     async function refreshJob(id, form, button, status) {
       try {
-        const response = await fetch(`/api/jobs/${id}`);
+        const response = await fetch(`api/jobs/${id}`);
         if (!response.ok) throw new Error(`Job request failed (${response.status})`);
         const job = await response.json();
         logEl.textContent = job.logs || 'Waiting for output…';
@@ -471,7 +471,7 @@ _PAGE = r"""<!doctype html>
         }
       }
       try {
-        const response = await fetch('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+        const response = await fetch('api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
         infoEl.textContent = `${labels[form.id]} · starting`;

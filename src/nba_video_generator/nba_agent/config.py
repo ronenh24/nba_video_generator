@@ -1,5 +1,6 @@
 """Configuration for the NBA daily-highlights agent."""
 import os
+from pathlib import Path
 
 from nba_video_generator.processed_performances import STATE_FILE
 
@@ -15,8 +16,12 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "lfm2.5-thinking:1.2b")
 # Passed straight through to your existing pipeline()/write_plays() code.
 FFMPEG_PATH = os.environ.get(
     "FFMPEG_PATH",
-    r"C:\Users\ronen\Documents\Projects\nba_video_generator\src"
-    r"\nba_video_generator\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe",
+    str(
+        Path(__file__).resolve().parents[1]
+        / "ffmpeg-9.0.2-essentials_build"
+        / "bin"
+        / "ffmpeg.exe"
+    ),
 )
 
 # --- Rule-based "worth a look" thresholds ---
