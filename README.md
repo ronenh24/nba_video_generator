@@ -160,8 +160,12 @@ that game clock. Jobs run in the background and stream their output to the
 activity panel. The YouTube upload workflow lets you select a video folder and
 Google `client_secrets.json` using local file pickers. Uploads default to
 private, preserve local files, and use a saved OAuth token under your home
-directory. Only one workflow can run at a time. To choose another port or keep
-the browser closed:
+directory. Before upload, a random track from
+`~/Videos/nba_videos/music` is mixed at 20% volume into detected silent
+sections (at least 0.5 seconds below -50 dB); the source video remains
+unchanged. Put audio you are authorized to use in that folder, or pass
+`--music-folder` to the upload script to use another folder. Only one workflow
+can run at a time. To choose another port or keep the browser closed:
 
 ```bash
 nba-video-generator-web --port 8766 --no-browser

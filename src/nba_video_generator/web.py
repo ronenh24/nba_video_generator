@@ -711,6 +711,7 @@ def _run_job(job_id: str, payload: dict[str, Any]) -> None:
                     payload["playlists"],
                     payload["privacy"],
                     payload["delete_uploaded"],
+                    ffmpeg_path=payload["ffmpeg_path"],
                 )
             print(f"\nWorkflow completed. Result: {result!r}")
         status = "succeeded"
