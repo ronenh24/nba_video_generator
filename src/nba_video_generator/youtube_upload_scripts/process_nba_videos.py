@@ -166,7 +166,8 @@ def _add_music_to_silent_parts(
             command.extend([
                 "-stream_loop", "-1", "-i", str(music),
                 "-filter_complex",
-                f"[1:a:0]volume=0.20:enable='{enabled_intervals}'[music];"
+                f"[1:a:0]volume=0:enable='not({enabled_intervals})',"
+                f"volume=0.20:enable='{enabled_intervals}'[music];"
                 "[0:a:0][music]amix=inputs=2:duration=first:"
                 "dropout_transition=0:normalize=0[aout]",
                 "-map", "0:v:0", "-map", "[aout]",
